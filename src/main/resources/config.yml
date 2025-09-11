@@ -1,0 +1,29 @@
+# config.yml
+global-rewards: # 職業を問わずグループ追加
+  3: job2
+
+or-rewards:
+  job3:
+    min_jobs_required: 2
+    conditions:
+      - job: any
+        level: 5
+
+
+achievements:
+  # 職業ごとの進捗
+  Miner:
+    3: "tsubusabajobs:miner_2"
+    5: "tsubusabajobs:miner_3"
+  Hunter:
+    3: "tsubusabajobs:hunter_2"
+    5: "tsubusabajobs:hunter_3"
+
+any-job-join:
+  first: "tsubusabajobs:g_job1"   # 1つ目の職業就職
+  second: "tsubusabajobs:g_job2"  # 2つ目の職業就職
+  third: "tsubusabajobs:g_job3"   # 3つ目の職業就職
+
+specific-job-join:
+  Miner: "tsubusabajobs:miner_1"
+  Hunter: "tsubusabajobs:hunter_1"

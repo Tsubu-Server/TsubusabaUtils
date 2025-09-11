@@ -1,0 +1,26 @@
+name: Utils
+version: '1.0.0'
+main: net.tsubu.tsubusabautils.TsubusabaUtils
+api-version: '1.21'
+author: Tsubu
+description: Integrated plugin with Jobs rewards system and SendMoney functionality
+
+commands:
+  sendmoney:
+    description: Open the send money GUI
+    usage: /sendmoney
+    aliases: [sm]
+  returndeath:
+    description: 死亡地点に戻る
+    usage: /returndeath
+  rd:
+    description: 死亡地点に戻る（短縮コマンド）
+    usage: /rd
+
+permissions:
+  sendmoney.use:
+    description: Allows use of the sendmoney command
+    default: true
+  sendmoney.admin:
+    description: Administrative permissions for SendMoney
+    default: op
