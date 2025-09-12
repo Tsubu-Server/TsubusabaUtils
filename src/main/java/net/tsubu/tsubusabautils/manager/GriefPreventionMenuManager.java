@@ -133,41 +133,56 @@ public class GriefPreventionMenuManager implements Listener {
         Claim claim = this.griefPrevention.dataStore.getClaimAt(player.getLocation(), false, null);
         if (claim == null) {
             player.sendMessage(Component.text("ここは保護されていない土地です！").color(NamedTextColor.RED));
+            player.closeInventory();
             return;
         }
 
         String targetUUID = target.getUniqueId().toString();
         ClaimPermission currentPermission = claim.getPermission(targetUUID);
+        boolean hasAccess = (currentPermission != null && currentPermission.ordinal() >= ClaimPermission.Access.ordinal());
+        boolean hasInventory = (currentPermission != null && currentPermission.ordinal() >= ClaimPermission.Inventory.ordinal());
+        boolean hasBuild = (currentPermission != null && currentPermission.ordinal() >= ClaimPermission.Build.ordinal());
 
-        boolean hasAccess = (currentPermission != null) && (currentPermission.ordinal() >= ClaimPermission.Access.ordinal());
-        boolean hasBuild = (currentPermission != null) && (currentPermission.ordinal() >= ClaimPermission.Build.ordinal());
-        boolean hasInventory = (currentPermission != null) && (currentPermission.ordinal() >= ClaimPermission.Inventory.ordinal());
+        menu.setItem(11, createPermissionItem(
+                PlainTextComponentSerializer.plainText().serialize(Component.text("土地の訪問者").color(NamedTextColor.GREEN).decorate(TextDecoration.BOLD)),
+                hasAccess,
+                Arrays.asList(
+                        Component.text("クリック/タップで訪問者権限を付与/解除").color(NamedTextColor.YELLOW).decorate(TextDecoration.BOLD),
+                        Component.text("").color(NamedTextColor.WHITE),
+                        Component.text("土地内でレバーやドアなどを操作できる").color(NamedTextColor.AQUA)
+                )
+        ));
 
-        menu.setItem(12, createPermissionItem("土地の訪問者", hasAccess, Arrays.asList(
-                Component.text("クリックして訪問者権限を付与/解除").color(NamedTextColor.YELLOW).decorate(TextDecoration.BOLD),
-                Component.text("").color(NamedTextColor.WHITE),
-                Component.text("訪問者: 土地内でチェストや看板、レバーなどを操作できる").color(NamedTextColor.GRAY)
-        )));
+        menu.setItem(13, createPermissionItem(
+                PlainTextComponentSerializer.plainText().serialize(Component.text("土地の利用者").color(NamedTextColor.YELLOW).decorate(TextDecoration.BOLD)),
+                hasInventory,
+                Arrays.asList(
+                        Component.text("クリック/タップで土地の利用者権限を付与/解除").color(NamedTextColor.YELLOW).decorate(TextDecoration.BOLD),
+                        Component.text("").color(NamedTextColor.WHITE),
+                        Component.text("訪問者権限に加え、土地内のチェスト・かまど・樽などを使用できる").color(NamedTextColor.AQUA)
+                )
+        ));
 
-        menu.setItem(14, createPermissionItem("土地の建築者", hasBuild, Arrays.asList(
-                Component.text("クリックして建築者権限を付与/解除").color(NamedTextColor.YELLOW).decorate(TextDecoration.BOLD),
-                Component.text("").color(NamedTextColor.WHITE),
-                Component.text("建築者: 土地内でブロックの設置/破壊ができる").color(NamedTextColor.GRAY)
-        )));
+        menu.setItem(15, createPermissionItem(
+                PlainTextComponentSerializer.plainText().serialize(Component.text("土地の建築者").color(NamedTextColor.RED).decorate(TextDecoration.BOLD)),
+                hasBuild,
+                Arrays.asList(
+                        Component.text("クリックして建築者権限を付与/解除").color(NamedTextColor.YELLOW).decorate(TextDecoration.BOLD),
+                        Component.text("").color(NamedTextColor.WHITE),
+                        Component.text("利用者権限に加え、土地内でブロックの設置/破壊ができる").color(NamedTextColor.AQUA)
+                )
+        ));
 
-        menu.setItem(16, createPermissionItem("チェストの使用/破壊者", hasInventory, Arrays.asList(
-                Component.text("クリックしてチェストの使用/破壊者権限を付与/解除").color(NamedTextColor.YELLOW).decorate(TextDecoration.BOLD),
-                Component.text("").color(NamedTextColor.WHITE),
-                Component.text("チェストの使用/破壊者: 土地内のチェストを破壊できる").color(NamedTextColor.GRAY)
-        )));
-
-        menu.setItem(18, createButton(Material.ARROW, "戻る"));
+        menu.setItem(18, createButton(
+                Material.ARROW,
+                PlainTextComponentSerializer.plainText().serialize(Component.text("戻る").color(NamedTextColor.YELLOW))
+        ));
 
         ItemStack banItem = new ItemStack(Material.BARRIER);
         ItemMeta banMeta = banItem.getItemMeta();
         banMeta.displayName(Component.text("追放").color(NamedTextColor.RED).decorate(TextDecoration.BOLD));
         banItem.setItemMeta(banMeta);
-        menu.setItem(21, banItem);
+        menu.setItem(22, banItem);
 
         ItemStack closeItem = new ItemStack(Material.BARRIER);
         ItemMeta closeMeta = closeItem.getItemMeta();
@@ -355,6 +370,7 @@ public class GriefPreventionMenuManager implements Listener {
 
         if (claim == null) {
             player.sendMessage(Component.text("ここは保護されていない土地です！").color(NamedTextColor.RED));
+            player.closeInventory();
             return;
         }
 
@@ -574,15 +590,14 @@ public class GriefPreventionMenuManager implements Listener {
                     permissionToToggle = ClaimPermission.Access;
                     message = "訪問者";
                     break;
+                case "土地の利用者":
+                    permissionToToggle = ClaimPermission.Inventory;
+                    message = "利用者";
+                    break;
                 case "土地の建築者":
                     permissionToToggle = ClaimPermission.Build;
                     message = "建築者";
                     break;
-                case "チェストの使用/破壊者":
-                    permissionToToggle = ClaimPermission.Inventory;
-                    message = "チェストの使用/破壊者";
-                    break;
-                // 「管理者」権限のケースを削除しました
                 default:
                     player.sendMessage(Component.text("不明な権限タイプです。").color(NamedTextColor.RED));
                     return;
