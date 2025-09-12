@@ -1,0 +1,726 @@
+package net.tsubu.tsubusabautils.manager;
+
+import me.ryanhamshire.GriefPrevention.Claim;
+import me.ryanhamshire.GriefPrevention.GriefPrevention;
+import me.ryanhamshire.GriefPrevention.PlayerData;
+import net.kyori.adventure.text.Component;
+import net.kyori.adventure.text.format.NamedTextColor;
+import net.kyori.adventure.text.format.TextDecoration;
+import net.kyori.adventure.text.serializer.plain.PlainTextComponentSerializer;
+import net.milkbowl.vault.economy.Economy;
+import net.tsubu.tsubusabautils.TsubusabaUtils;
+import net.wesjd.anvilgui.AnvilGUI;
+import org.bukkit.Bukkit;
+import org.bukkit.Location;
+import org.bukkit.Material;
+import org.bukkit.Sound;
+import org.bukkit.configuration.file.FileConfiguration;
+import org.bukkit.configuration.file.YamlConfiguration;
+import org.bukkit.enchantments.Enchantment;
+import org.bukkit.entity.Player;
+import org.bukkit.event.EventHandler;
+import org.bukkit.event.Listener;
+import org.bukkit.event.inventory.InventoryClickEvent;
+import org.bukkit.inventory.Inventory;
+import org.bukkit.inventory.ItemFlag;
+import org.bukkit.inventory.ItemStack;
+import org.bukkit.inventory.meta.ItemMeta;
+import org.bukkit.inventory.meta.SkullMeta;
+import me.ryanhamshire.GriefPrevention.ClaimPermission;
+
+import java.io.File;
+import java.io.IOException;
+import java.text.DecimalFormat;
+import java.util.*;
+import java.util.stream.Collectors;
+
+public class GriefPreventionMenuManager implements Listener {
+
+    private final TsubusabaUtils plugin;
+    private final GriefPrevention griefPrevention;
+    private final Economy economy;
+    private final Map<UUID, Long> lastClickTime = new HashMap<>();
+    private final Map<UUID, Integer> pendingPurchaseAmount = new HashMap<>();
+    private static final long COOLDOWN_MS = 100;
+    private static final DecimalFormat df = new DecimalFormat("#,##0");
+    private final double claimBlockCost;
+
+    private File claimsFile;
+    private FileConfiguration claimsConfig;
+
+    public GriefPreventionMenuManager(TsubusabaUtils plugin, GriefPrevention griefPrevention, Economy economy) {
+        this.plugin = plugin;
+        this.griefPrevention = griefPrevention;
+        this.economy = economy;
+        setupClaimsConfig();
+        this.claimBlockCost = griefPrevention.getConfig().getDouble("economy.ClaimBlocksPurchaseCost", 3.0);
+    }
+
+    private void setupClaimsConfig() {
+        claimsFile = new File(plugin.getDataFolder(), "claims.yml");
+        if (!claimsFile.exists()) {
+            try {
+                claimsFile.createNewFile();
+            } catch (IOException e) {
+                plugin.getLogger().severe("Could not create claims.yml file: " + e.getMessage());
+            }
+        }
+        claimsConfig = YamlConfiguration.loadConfiguration(claimsFile);
+    }
+
+    private void saveClaimsConfig() {
+        try {
+            claimsConfig.save(claimsFile);
+        } catch (IOException e) {
+            plugin.getLogger().severe("Could not save claims.yml file: " + e.getMessage());
+        }
+    }
+
+    public void openMainMenu(Player player) {
+        Inventory inv = Bukkit.createInventory(null, 27, Component.text("土地保護メニュー").color(NamedTextColor.BLUE));
+
+        inv.setItem(22, createPlayerInfoItem(player));
+
+        inv.setItem(10, createMenuItem(Material.NAME_TAG, "土地名前変更",
+                Arrays.asList("現在いる土地の名前を", "変更します")));
+        inv.setItem(12, createMenuItem(Material.PLAYER_HEAD, "プレイヤー追加/管理",
+                Arrays.asList("現在いる土地の", "権限を管理します")));
+        inv.setItem(14, createMenuItem(Material.GRASS_BLOCK, "土地一覧",
+                Arrays.asList("自分の所有している土地を", "一覧で表示します")));
+
+        inv.setItem(16, createMenuItem(Material.DIAMOND_BLOCK, "保護ブロック数購入",
+                Arrays.asList("保護ブロックを", "購入します")));
+        inv.setItem(23, createMenuItem(Material.BARRIER, "閉じる",
+                Arrays.asList("メニューを閉じます")));
+
+        player.openInventory(inv);
+    }
+
+    public void openPlayerListMenu(Player player) {
+        List<Player> onlinePlayers = new ArrayList<>();
+        for (Player p : Bukkit.getOnlinePlayers()) {
+            if (!p.equals(player)) {
+                onlinePlayers.add(p);
+            }
+        }
+
+        Inventory gui = Bukkit.createInventory(null, 54,
+                Component.text("プレイヤー一覧")
+                        .color(NamedTextColor.BLUE)
+                        .decorate(TextDecoration.BOLD));
+
+        for (int i = 0; i < Math.min(onlinePlayers.size(), 45); i++) {
+            Player target = onlinePlayers.get(i);
+            gui.setItem(i, createPlayerHeadItem(target));
+        }
+
+        gui.setItem(45, createMenuItem(Material.ARROW, "戻る", Arrays.asList("メインメニューに戻る")));
+        gui.setItem(53, createMenuItem(Material.BARRIER, "閉じる", Arrays.asList("メニューを閉じます")));
+
+        player.openInventory(gui);
+    }
+
+    private void openPermissionMenu(Player player, Player target) {
+        String title = "権限設定: " + target.getName();
+        Inventory menu = Bukkit.createInventory(null, 27, Component.text(title).color(NamedTextColor.DARK_AQUA));
+
+        ItemStack playerHead = new ItemStack(Material.PLAYER_HEAD);
+        SkullMeta skullMeta = (SkullMeta) playerHead.getItemMeta();
+        skullMeta.setOwningPlayer(target);
+        playerHead.setItemMeta(skullMeta);
+        menu.setItem(4, playerHead);
+
+        Claim claim = this.griefPrevention.dataStore.getClaimAt(player.getLocation(), false, null);
+        if (claim == null) {
+            player.sendMessage(Component.text("ここは保護されていない土地です！").color(NamedTextColor.RED));
+            return;
+        }
+
+        String targetUUID = target.getUniqueId().toString();
+        ClaimPermission currentPermission = claim.getPermission(targetUUID);
+
+        boolean hasAccess = (currentPermission != null) && (currentPermission.ordinal() >= ClaimPermission.Access.ordinal());
+        boolean hasBuild = (currentPermission != null) && (currentPermission.ordinal() >= ClaimPermission.Build.ordinal());
+        boolean hasInventory = (currentPermission != null) && (currentPermission.ordinal() >= ClaimPermission.Inventory.ordinal());
+
+        menu.setItem(12, createPermissionItem("土地の訪問者", hasAccess, Arrays.asList(
+                Component.text("クリックして訪問者権限を付与/解除").color(NamedTextColor.YELLOW).decorate(TextDecoration.BOLD),
+                Component.text("").color(NamedTextColor.WHITE),
+                Component.text("訪問者: 土地内でチェストや看板、レバーなどを操作できる").color(NamedTextColor.GRAY)
+        )));
+
+        menu.setItem(14, createPermissionItem("土地の建築者", hasBuild, Arrays.asList(
+                Component.text("クリックして建築者権限を付与/解除").color(NamedTextColor.YELLOW).decorate(TextDecoration.BOLD),
+                Component.text("").color(NamedTextColor.WHITE),
+                Component.text("建築者: 土地内でブロックの設置/破壊ができる").color(NamedTextColor.GRAY)
+        )));
+
+        menu.setItem(16, createPermissionItem("チェストの使用/破壊者", hasInventory, Arrays.asList(
+                Component.text("クリックしてチェストの使用/破壊者権限を付与/解除").color(NamedTextColor.YELLOW).decorate(TextDecoration.BOLD),
+                Component.text("").color(NamedTextColor.WHITE),
+                Component.text("チェストの使用/破壊者: 土地内のチェストを破壊できる").color(NamedTextColor.GRAY)
+        )));
+
+        menu.setItem(18, createButton(Material.ARROW, "戻る"));
+
+        ItemStack banItem = new ItemStack(Material.BARRIER);
+        ItemMeta banMeta = banItem.getItemMeta();
+        banMeta.displayName(Component.text("追放").color(NamedTextColor.RED).decorate(TextDecoration.BOLD));
+        banItem.setItemMeta(banMeta);
+        menu.setItem(21, banItem);
+
+        ItemStack closeItem = new ItemStack(Material.BARRIER);
+        ItemMeta closeMeta = closeItem.getItemMeta();
+        closeMeta.displayName(Component.text("閉じる").color(NamedTextColor.RED).decorate(TextDecoration.BOLD));
+        closeItem.setItemMeta(closeMeta);
+        menu.setItem(26, closeItem);
+
+        player.openInventory(menu);
+    }
+
+    public void openBlockPurchaseMenu(Player player, int amount) {
+        Inventory gui = Bukkit.createInventory(null, 36,
+                Component.text("保護ブロック数購入")
+                        .color(NamedTextColor.GOLD)
+                        .decorate(TextDecoration.BOLD));
+
+        gui.setItem(25, createPurchaseDisplayItem(player, amount));
+
+        gui.setItem(10, createButton(Material.GREEN_STAINED_GLASS_PANE, "+1"));
+        gui.setItem(11, createButton(Material.GREEN_STAINED_GLASS_PANE, "+10"));
+        gui.setItem(12, createButton(Material.GREEN_STAINED_GLASS_PANE, "+100"));
+        gui.setItem(13, createButton(Material.GREEN_STAINED_GLASS_PANE, "+1000"));
+        gui.setItem(14, createButton(Material.GREEN_STAINED_GLASS_PANE, "+10000"));
+
+        gui.setItem(19, createButton(Material.RED_STAINED_GLASS_PANE, "-1"));
+        gui.setItem(20, createButton(Material.RED_STAINED_GLASS_PANE, "-10"));
+        gui.setItem(21, createButton(Material.RED_STAINED_GLASS_PANE, "-100"));
+        gui.setItem(22, createButton(Material.RED_STAINED_GLASS_PANE, "-1000"));
+        gui.setItem(23, createButton(Material.RED_STAINED_GLASS_PANE, "-10000"));
+
+        gui.setItem(16, createButton(Material.EMERALD_BLOCK, "購入確定"));
+        gui.setItem(27, createButton(Material.ARROW, "戻る"));
+        gui.setItem(35, createButton(Material.BARRIER, "閉じる"));
+
+        player.openInventory(gui);
+    }
+
+    private void purchaseClaimBlocks(Player player, int amount, double price) {
+        if (economy.has(player, price)) {
+            economy.withdrawPlayer(player, price);
+            PlayerData playerData = griefPrevention.dataStore.getPlayerData(player.getUniqueId());
+            playerData.setAccruedClaimBlocks(playerData.getAccruedClaimBlocks() + amount);
+            griefPrevention.dataStore.savePlayerData(player.getUniqueId(), playerData);
+            player.sendMessage(Component.text("保護ブロックを " + df.format(amount) + " 個購入しました！").color(NamedTextColor.GREEN));
+            player.sendMessage(Component.text("現在の所持金: " + df.format(economy.getBalance(player)) + "円").color(NamedTextColor.GREEN));
+            player.playSound(player.getLocation(), Sound.ENTITY_PLAYER_LEVELUP, 1.0f, 1.5f);
+        } else {
+            player.sendMessage(Component.text("所持金が足りません！").color(NamedTextColor.RED));
+            player.playSound(player.getLocation(), Sound.ENTITY_VILLAGER_NO, 1.0f, 1.0f);
+        }
+        openMainMenu(player);
+    }
+
+    private ItemStack createMenuItem(Material material, String name, List<String> lore, NamedTextColor nameColor) {
+        ItemStack item = new ItemStack(material);
+        ItemMeta meta = item.getItemMeta();
+        meta.displayName(Component.text(name).color(nameColor));
+        List<Component> loreList = new ArrayList<>();
+        for (String line : lore) {
+            loreList.add(Component.text(line).color(NamedTextColor.GRAY));
+        }
+        meta.lore(loreList);
+        if (material.equals(Material.BARRIER)) {
+            meta.addEnchant(Enchantment.INFINITY, 1, false);
+            meta.addItemFlags(ItemFlag.HIDE_ENCHANTS);
+        }
+        item.setItemMeta(meta);
+        return item;
+    }
+
+    private ItemStack createMenuItem(Material material, String name, List<String> lore) {
+        return createMenuItem(material, name, lore, NamedTextColor.YELLOW);
+    }
+
+    private ItemStack createPermissionItem(String name, boolean granted, List<Component> lore) {
+        Material material = granted ? Material.LIME_CONCRETE : Material.RED_CONCRETE;
+        String status = granted ? "✓" : "✗";
+        ItemStack item = new ItemStack(material);
+        ItemMeta meta = item.getItemMeta();
+        meta.displayName(Component.text(name + " (" + status + ")").color(NamedTextColor.WHITE));
+        meta.lore(lore); // 型をList<Component>に合わせる
+        item.setItemMeta(meta);
+        return item;
+    }
+
+    private ItemStack createPurchaseDisplayItem(Player player, int amount) {
+        ItemStack item = new ItemStack(Material.PAPER);
+        ItemMeta meta = item.getItemMeta();
+
+        double price = amount * claimBlockCost;
+        meta.displayName(Component.text("合計: " + df.format(amount)).color(NamedTextColor.AQUA));
+        List<Component> lore = new ArrayList<>();
+        lore.add(Component.text("価格: " + df.format(price) + "円").color(NamedTextColor.GREEN));
+        lore.add(Component.text("現在の所持金: " + df.format(economy.getBalance(player)) + "円").color(NamedTextColor.GREEN));
+        if (economy.getBalance(player) < price) {
+            lore.add(Component.text("所持金が足りません！").color(NamedTextColor.RED));
+        }
+        meta.lore(lore);
+        item.setItemMeta(meta);
+        return item;
+    }
+
+    private ItemStack createButton(Material material, String name) {
+        ItemStack item = new ItemStack(material);
+        ItemMeta meta = item.getItemMeta();
+        meta.displayName(Component.text(name).color(NamedTextColor.WHITE));
+        item.setItemMeta(meta);
+        return item;
+    }
+
+    private ItemStack createPlayerInfoItem(Player player) {
+        ItemStack item = new ItemStack(Material.PLAYER_HEAD);
+        SkullMeta meta = (SkullMeta) item.getItemMeta();
+
+        meta.setOwningPlayer(player);
+        meta.displayName(Component.text(player.getName()).color(NamedTextColor.YELLOW));
+
+        Economy economy = TsubusabaUtils.getEconomy();
+        PlayerData playerData = this.griefPrevention.dataStore.getPlayerData(player.getUniqueId());
+
+        List<Component> lore = new ArrayList<>();
+
+        if (economy != null) {
+            lore.add(Component.text("所持金: " + economy.format(economy.getBalance(player)))
+                    .color(NamedTextColor.GREEN));
+        }
+
+        if (playerData != null) {
+            int totalBlocks = playerData.getAccruedClaimBlocks() + playerData.getBonusClaimBlocks();
+            lore.add(Component.text("保護ブロック: " + totalBlocks)
+                    .color(NamedTextColor.BLUE));
+
+            int remaining = playerData.getRemainingClaimBlocks();
+            int used = Math.max(0, totalBlocks - remaining);
+            lore.add(Component.text("使用中: " + used)
+                    .color(NamedTextColor.RED));
+            lore.add(Component.text("残り: " + remaining)
+                    .color(NamedTextColor.GREEN));
+        }
+
+        meta.lore(lore);
+        item.setItemMeta(meta);
+        return item;
+    }
+
+    public void openClaimListMenu(Player player, int page) {
+        PlayerData playerData = GriefPrevention.instance.dataStore.getPlayerData(player.getUniqueId());
+        List<Claim> claims = playerData.getClaims().stream()
+                .filter(claim -> claim.parent == null)
+                .collect(Collectors.toList());
+
+        int pageSize = 45;
+        int totalClaims = claims.size();
+        int totalPages = (int) Math.ceil((double) totalClaims / pageSize);
+
+        if (page < 0) page = 0;
+        if (page >= totalPages && totalPages > 0) page = totalPages - 1;
+
+        int start = page * pageSize;
+        int end = Math.min(start + pageSize, totalClaims);
+
+        Inventory gui = Bukkit.createInventory(null, 54,
+                Component.text("土地一覧 (Page " + (page + 1) + "/" + Math.max(1, totalPages) + ")")
+                        .color(NamedTextColor.AQUA)
+                        .decorate(TextDecoration.BOLD));
+
+        for (int i = start; i < end; i++) {
+            gui.setItem(i - start, createClaimItem(claims.get(i)));
+        }
+
+        gui.setItem(45, createMenuItem(Material.ARROW, "戻る", Arrays.asList("メインメニューに戻る")));
+        if (page > 0) {
+            gui.setItem(48, createMenuItem(Material.ORANGE_DYE, "◀ 前のページ", Arrays.asList("前のページへ")));
+        }
+        if (page < totalPages - 1) {
+            gui.setItem(50, createMenuItem(Material.LIME_DYE, "次のページ ▶", Arrays.asList("次のページへ")));
+        }
+        gui.setItem(53, createMenuItem(Material.BARRIER, "閉じる", Arrays.asList("メニューを閉じます")));
+
+        player.openInventory(gui);
+    }
+
+    public void openRenameAnvil(Player player) {
+        Claim claim = this.griefPrevention.dataStore.getClaimAt(player.getLocation(), false, null);
+
+        if (claim == null) {
+            player.sendMessage(Component.text("ここは保護されていない土地です！").color(NamedTextColor.RED));
+            return;
+        }
+
+        if (claim.allowEdit(player) != null && !player.hasPermission("griefprevention.adminclaims")) {
+            player.sendMessage(Component.text("この土地の編集権限がありません！").color(NamedTextColor.RED));
+            return;
+        }
+
+        String currentName = getClaimName(claim);
+
+        new AnvilGUI.Builder()
+                .onClick((slot, stateSnapshot) -> {
+                    if (slot != AnvilGUI.Slot.OUTPUT) {
+                        return Collections.emptyList();
+                    }
+
+                    String newName = stateSnapshot.getText();
+                    if (newName != null && !newName.trim().isEmpty()) {
+                        setClaimName(claim, newName.trim());
+                        player.sendMessage(Component.text("土地名を「" + newName.trim() + "」に変更しました！")
+                                .color(NamedTextColor.GREEN));
+                        player.playSound(player.getLocation(), Sound.ENTITY_PLAYER_LEVELUP, 1.0f, 1.5f);
+                        return List.of(AnvilGUI.ResponseAction.close());
+                    }
+                    return List.of(AnvilGUI.ResponseAction.replaceInputText("名前を入力してください"));
+                })
+                .text(currentName)
+                .title("土地名を入力")
+                .plugin(plugin)
+                .open(player);
+    }
+
+    private ItemStack createPlayerHeadItem(Player target) {
+        ItemStack item = new ItemStack(Material.PLAYER_HEAD);
+        SkullMeta meta = (SkullMeta) item.getItemMeta();
+
+        meta.setOwningPlayer(target);
+        meta.displayName(Component.text(target.getName()).color(NamedTextColor.GREEN));
+
+        List<Component> lore = Arrays.asList(
+                Component.text("クリック/タップで追加・管理").color(NamedTextColor.GOLD),
+                Component.text("オンライン").color(NamedTextColor.GREEN)
+        );
+        meta.lore(lore);
+
+        item.setItemMeta(meta);
+        return item;
+    }
+
+    private ItemStack createClaimItem(Claim claim) {
+        ItemStack item = new ItemStack(Material.GRASS_BLOCK);
+        item.editMeta(meta -> {
+            String name = getClaimName(claim);
+            meta.displayName(Component.text(name).color(NamedTextColor.GREEN));
+
+            int area = claim.getArea();
+            Location center = new Location(claim.getLesserBoundaryCorner().getWorld(),
+                    (claim.getLesserBoundaryCorner().getX() + claim.getGreaterBoundaryCorner().getX()) / 2.0,
+                    claim.getLesserBoundaryCorner().getY(),
+                    (claim.getLesserBoundaryCorner().getZ() + claim.getGreaterBoundaryCorner().getZ()) / 2.0);
+
+            List<Component> lore = Arrays.asList(
+                    Component.text("面積: " + df.format(area) + " ブロック").color(NamedTextColor.AQUA),
+                    Component.text("座標: " + center.getBlockX() + ", " + center.getBlockY() + ", " + center.getBlockZ())
+                            .color(NamedTextColor.GREEN),
+                    Component.text("クリック/タップでテレポート").color(NamedTextColor.GOLD)
+            );
+            meta.lore(lore);
+        });
+        return item;
+    }
+
+    private String getClaimName(Claim claim) {
+        String name = claimsConfig.getString("claims." + claim.getID() + ".name");
+        return name != null ? name : "土地 #" + claim.getID();
+    }
+
+    private void setClaimName(Claim claim, String name) {
+        claimsConfig.set("claims." + claim.getID() + ".name", name);
+        saveClaimsConfig();
+    }
+
+    @EventHandler
+    public void onInventoryClick(InventoryClickEvent event) {
+        if (!(event.getWhoClicked() instanceof Player player)) return;
+
+        Inventory clickedInventory = event.getClickedInventory();
+        if (clickedInventory == null) return;
+
+        Component titleComponent = player.getOpenInventory().title();
+        if (titleComponent == null) return;
+
+        String titleText = PlainTextComponentSerializer.plainText().serialize(titleComponent);
+
+        if (titleText.contains("土地保護メニュー") || titleText.contains("プレイヤー一覧") ||
+                titleText.contains("権限設定") || titleText.contains("土地一覧") || titleText.equals("保護ブロック数購入")) {
+            event.setCancelled(true);
+        }
+
+        ItemStack clicked = event.getCurrentItem();
+        if (clicked == null || clicked.getType() == Material.AIR) return;
+
+        long currentTime = System.currentTimeMillis();
+        if (lastClickTime.containsKey(player.getUniqueId()) &&
+                currentTime - lastClickTime.get(player.getUniqueId()) < COOLDOWN_MS) {
+            return;
+        }
+        lastClickTime.put(player.getUniqueId(), currentTime);
+
+        ItemMeta meta = clicked.getItemMeta();
+        if (meta == null || meta.displayName() == null) return;
+
+        String itemName = PlainTextComponentSerializer.plainText().serialize(meta.displayName());
+
+        if (titleText.equals("土地保護メニュー")) {
+            handleMainMenuClick(player, itemName);
+        } else if (titleText.equals("プレイヤー一覧")) {
+            handlePlayerListClick(player, itemName, clicked);
+        } else if (titleText.startsWith("権限設定:")) {
+            handlePermissionMenuClick(player, titleText, itemName);
+        } else if (titleText.equals("保護ブロック数購入")) {
+            handleBlockPurchaseClick(player, itemName);
+        } else if (titleText.contains("土地一覧 (Page ")) {
+            handleClaimListClick(player, itemName, clicked, titleText);
+        }
+    }
+
+    private void handleMainMenuClick(Player player, String itemName) {
+        player.playSound(player.getLocation(), Sound.UI_BUTTON_CLICK, 1.0f, 1.0f);
+
+        switch (itemName) {
+            case "土地名前変更" -> openRenameAnvil(player);
+            case "プレイヤー追加/管理" -> openPlayerListMenu(player);
+            case "土地一覧" -> openClaimListMenu(player, 0);
+            case "保護ブロック数購入" -> {
+                pendingPurchaseAmount.put(player.getUniqueId(), 0);
+                openBlockPurchaseMenu(player, 0);
+            }
+            case "閉じる" -> player.closeInventory();
+        }
+    }
+
+    private void handlePlayerListClick(Player player, String itemName, ItemStack clicked) {
+        if (itemName.equals("戻る")) {
+            player.playSound(player.getLocation(), Sound.UI_BUTTON_CLICK, 1.0f, 1.0f);
+            openMainMenu(player);
+            return;
+        }
+
+        if (itemName.equals("閉じる")) {
+            player.playSound(player.getLocation(), Sound.UI_BUTTON_CLICK, 1.0f, 1.0f);
+            player.closeInventory();
+            return;
+        }
+
+        if (clicked.getType() == Material.PLAYER_HEAD) {
+            String targetName = PlainTextComponentSerializer.plainText().serialize(clicked.getItemMeta().displayName());
+            Player target = Bukkit.getPlayer(targetName);
+            if (target != null && target.isOnline()) {
+                player.playSound(player.getLocation(), Sound.UI_BUTTON_CLICK, 1.0f, 1.2f);
+                openPermissionMenu(player, target);
+            }
+        }
+    }
+
+    private void handlePermissionMenuClick(Player player, String titleText, String itemName) {
+        if (itemName.equals("戻る")) {
+            player.playSound(player.getLocation(), Sound.UI_BUTTON_CLICK, 1.0f, 1.0f);
+            openPlayerListMenu(player);
+            return;
+        }
+
+        if (itemName.equals("閉じる")) {
+            player.playSound(player.getLocation(), Sound.UI_BUTTON_CLICK, 1.0f, 1.0f);
+            player.closeInventory();
+            return;
+        }
+
+        String targetName = titleText.replace("権限設定: ", "");
+        Player target = Bukkit.getPlayer(targetName);
+
+        if (target == null) {
+            player.sendMessage(Component.text("対象プレイヤーが見つかりません！").color(NamedTextColor.RED));
+            player.closeInventory();
+            return;
+        }
+
+        Claim claim = this.griefPrevention.dataStore.getClaimAt(player.getLocation(), false, null);
+        if (claim == null) {
+            player.sendMessage(Component.text("ここは保護されていない土地です！").color(NamedTextColor.RED));
+            player.closeInventory();
+            return;
+        }
+
+        String allowGrantResult = claim.allowGrantPermission(player);
+        if (allowGrantResult != null && !player.hasPermission("griefprevention.adminclaims")) {
+            player.sendMessage(Component.text("この土地に対する権限がありません！").color(NamedTextColor.RED));
+            player.closeInventory();
+            return;
+        }
+
+        player.playSound(player.getLocation(), Sound.UI_BUTTON_CLICK, 1.0f, 1.2f);
+
+        if (itemName.equals("追放")) {
+            player.performCommand("untrust " + target.getName());
+            player.sendMessage(Component.text(target.getName() + " を土地から追放しました。").color(NamedTextColor.RED));
+            player.playSound(player.getLocation(), Sound.ENTITY_PLAYER_LEVELUP, 1.0f, 1.5f);
+            player.closeInventory();
+
+        } else {
+            String cleanedItemName = itemName.replace(" (✓)", "").replace(" (✗)", "");
+            ClaimPermission permissionToToggle = null;
+            String message;
+
+            switch (cleanedItemName) {
+                case "土地の訪問者":
+                    permissionToToggle = ClaimPermission.Access;
+                    message = "訪問者";
+                    break;
+                case "土地の建築者":
+                    permissionToToggle = ClaimPermission.Build;
+                    message = "建築者";
+                    break;
+                case "チェストの使用/破壊者":
+                    permissionToToggle = ClaimPermission.Inventory;
+                    message = "チェストの使用/破壊者";
+                    break;
+                // 「管理者」権限のケースを削除しました
+                default:
+                    player.sendMessage(Component.text("不明な権限タイプです。").color(NamedTextColor.RED));
+                    return;
+            }
+
+            ClaimPermission currentPermission = claim.getPermission(target.getUniqueId().toString());
+            if (currentPermission != null && currentPermission.ordinal() >= permissionToToggle.ordinal()) {
+                if (currentPermission.ordinal() == permissionToToggle.ordinal()) {
+                    ClaimPermission downgradedPermission = null;
+                    if (permissionToToggle == ClaimPermission.Inventory) {
+                        downgradedPermission = ClaimPermission.Build;
+                    } else if (permissionToToggle == ClaimPermission.Build) {
+                        downgradedPermission = ClaimPermission.Access;
+                    } else if (permissionToToggle == ClaimPermission.Access) {
+                        player.performCommand("untrust " + target.getName());
+                        player.sendMessage(Component.text(target.getName() + " の権限を解除しました。").color(NamedTextColor.RED));
+                        griefPrevention.dataStore.saveClaim(claim);
+                        player.playSound(player.getLocation(), Sound.ENTITY_PLAYER_LEVELUP, 1.0f, 1.5f);
+                        player.closeInventory();
+                        return;
+                    }
+
+                    if (downgradedPermission != null) {
+                        claim.setPermission(target.getUniqueId().toString(), downgradedPermission);
+                        player.sendMessage(Component.text(target.getName() + " の権限をダウングレードしました。").color(NamedTextColor.YELLOW));
+                    }
+                } else {
+                    player.sendMessage(Component.text(target.getName() + " は既に上位の権限を持っています。").color(NamedTextColor.GRAY));
+                }
+            } else {
+                claim.setPermission(target.getUniqueId().toString(), permissionToToggle);
+                player.sendMessage(Component.text(target.getName() + " に " + message + " 権限を付与しました。").color(NamedTextColor.GREEN));
+            }
+
+            griefPrevention.dataStore.saveClaim(claim);
+            player.playSound(player.getLocation(), Sound.ENTITY_PLAYER_LEVELUP, 1.0f, 1.5f);
+            player.closeInventory();
+        }
+    }
+
+    private void handleBlockPurchaseClick(Player player, String itemName) {
+        player.playSound(player.getLocation(), Sound.UI_BUTTON_CLICK, 1.0f, 1.0f);
+        int currentAmount = pendingPurchaseAmount.getOrDefault(player.getUniqueId(), 0);
+        int newAmount = currentAmount;
+
+        switch (itemName) {
+            case "+1" -> newAmount += 1;
+            case "+10" -> newAmount += 10;
+            case "+100" -> newAmount += 100;
+            case "+1000" -> newAmount += 1000;
+            case "+10000" -> newAmount += 10000;
+            case "-1" -> newAmount -= 1;
+            case "-10" -> newAmount -= 10;
+            case "-100" -> newAmount -= 100;
+            case "-1000" -> newAmount -= 1000;
+            case "-10000" -> newAmount -= 10000;
+            case "購入確定" -> {
+                if (newAmount > 0) {
+                    double price = newAmount * claimBlockCost;
+                    purchaseClaimBlocks(player, newAmount, price);
+                    pendingPurchaseAmount.remove(player.getUniqueId());
+                } else {
+                    player.sendMessage(Component.text("購入ブロック数は1以上にする必要があります！").color(NamedTextColor.RED));
+                    player.playSound(player.getLocation(), Sound.ENTITY_VILLAGER_NO, 1.0f, 1.0f);
+                }
+                return;
+            }
+            case "戻る" -> {
+                pendingPurchaseAmount.remove(player.getUniqueId());
+                openMainMenu(player);
+                return;
+            }
+            case "閉じる" -> {
+                pendingPurchaseAmount.remove(player.getUniqueId());
+                player.closeInventory();
+                return;
+            }
+        }
+
+        if (newAmount < 0) {
+            newAmount = 0;
+        }
+
+        pendingPurchaseAmount.put(player.getUniqueId(), newAmount);
+        openBlockPurchaseMenu(player, newAmount);
+    }
+
+    private void handleClaimListClick(Player player, String itemName, ItemStack clicked, String titleText) {
+        if (itemName.equals("戻る")) {
+            player.playSound(player.getLocation(), Sound.UI_BUTTON_CLICK, 1.0f, 1.0f);
+            openMainMenu(player);
+            return;
+        }
+
+        if (itemName.equals("閉じる")) {
+            player.playSound(player.getLocation(), Sound.UI_BUTTON_CLICK, 1.0f, 1.0f);
+            player.closeInventory();
+            return;
+        }
+
+        int currentPage = Integer.parseInt(titleText.split("\\(Page ")[1].split("/")[0]);
+
+        if (itemName.equals("◀ 前のページ")) {
+            player.playSound(player.getLocation(), Sound.UI_BUTTON_CLICK, 1.0f, 1.0f);
+            openClaimListMenu(player, currentPage - 2);
+            return;
+        } else if (itemName.equals("次のページ ▶")) {
+            player.playSound(player.getLocation(), Sound.UI_BUTTON_CLICK, 1.0f, 1.0f);
+            openClaimListMenu(player, currentPage);
+            return;
+        }
+
+        if (clicked.getType() == Material.GRASS_BLOCK) {
+            if (clicked.hasItemMeta() && clicked.getItemMeta().lore() != null) {
+                List<Component> lore = clicked.getItemMeta().lore();
+                for (Component line : lore) {
+                    String loreText = PlainTextComponentSerializer.plainText().serialize(line);
+                    if (loreText.startsWith("座標: ")) {
+                        try {
+                            String coordText = loreText.replace("座標: ", "");
+                            String[] coords = coordText.split(", ");
+                            int x = Integer.parseInt(coords[0]);
+                            int y = Integer.parseInt(coords[1]);
+                            int z = Integer.parseInt(coords[2]);
+
+                            Location teleportLoc = new Location(player.getWorld(), x + 0.5, y + 1, z + 0.5);
+                            player.teleport(teleportLoc);
+                            player.sendMessage(Component.text("土地の中心にテレポートしました！").color(NamedTextColor.GREEN));
+                            player.playSound(player.getLocation(), Sound.ENTITY_ENDERMAN_TELEPORT, 1.0f, 1.0f);
+                            player.closeInventory();
+                            return;
+                        } catch (Exception e) {
+                            player.sendMessage(Component.text("テレポートに失敗しました！").color(NamedTextColor.RED));
+                        }
+                        break;
+                    }
+                }
+            }
+        }
+    }
+}

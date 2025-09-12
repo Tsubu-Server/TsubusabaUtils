@@ -1,5 +1,6 @@
-package net.tsubu.tsubusabautils;
+package net.tsubu.tsubusabautils.command;
 
+import net.tsubu.tsubusabautils.TsubusabaUtils;
 import net.tsubu.tsubusabautils.manager.InvincibilityManager;
 import org.bukkit.Location;
 import org.bukkit.command.Command;

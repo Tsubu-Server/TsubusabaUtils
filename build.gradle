@@ -39,6 +39,10 @@ repositories {
         name = 'luckperms'
         url = 'https://oss.sonatype.org/content/repositories/snapshots'
     }
+    maven {
+        name = 'codemc-repo'
+        url = 'https://repo.codemc.org/repository/maven-public/'
+    }
 }
 
 dependencies {
@@ -47,6 +51,8 @@ dependencies {
     compileOnly 'com.github.MilkBowl:VaultAPI:1.7'
     compileOnly files('libs/Jobs5.2.6.3.jar')
     compileOnly 'net.luckperms:api:5.4'
+    compileOnly 'com.github.GriefPrevention:GriefPrevention:16.18.2'
+    implementation 'net.wesjd:anvilgui:1.10.8-SNAPSHOT'
 }
 
 tasks.withType(JavaCompile) {

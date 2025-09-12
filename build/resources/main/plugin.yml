@@ -1,9 +1,13 @@
-name: Utils
+name: TsubusabaUtils
 version: '1.0.0'
 main: net.tsubu.tsubusabautils.TsubusabaUtils
 api-version: '1.21'
 author: Tsubu
 description: Integrated plugin with Jobs rewards system and SendMoney functionality
+
+depend:
+  - GriefPrevention
+
 
 commands:
   sendmoney:
@@ -13,9 +17,13 @@ commands:
   returndeath:
     description: 死亡地点に戻る
     usage: /returndeath
-  rd:
-    description: 死亡地点に戻る（短縮コマンド）
-    usage: /rd
+    aliases: [rd]
+  thome:
+    description: Open home GUI
+    usage: /thome
+  gmenu:
+    description: Open GPMenu GUI
+    usage: /gmenu
 
 permissions:
   sendmoney.use:
