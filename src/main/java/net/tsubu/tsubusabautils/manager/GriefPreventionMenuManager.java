@@ -6,6 +6,7 @@ import me.ryanhamshire.GriefPrevention.PlayerData;
 import net.kyori.adventure.text.Component;
 import net.kyori.adventure.text.format.NamedTextColor;
 import net.kyori.adventure.text.format.TextDecoration;
+import net.kyori.adventure.text.serializer.legacy.LegacyComponentSerializer;
 import net.kyori.adventure.text.serializer.plain.PlainTextComponentSerializer;
 import net.milkbowl.vault.economy.Economy;
 import net.tsubu.tsubusabautils.TsubusabaUtils;
@@ -84,7 +85,7 @@ public class GriefPreventionMenuManager implements Listener {
         inv.setItem(10, createMenuItem(Material.NAME_TAG, "土地名前変更",
                 Arrays.asList("現在いる土地の名前を", "変更します")));
         inv.setItem(12, createMenuItem(Material.PLAYER_HEAD, "プレイヤー追加/管理",
-                Arrays.asList("現在いる土地の", "権限を管理します")));
+                Arrays.asList("現在の土地にプレイヤーを追加したり、", "権限を管理します")));
         inv.setItem(14, createMenuItem(Material.GRASS_BLOCK, "土地一覧",
                 Arrays.asList("自分の所有している土地を", "一覧で表示します")));
 
@@ -107,7 +108,8 @@ public class GriefPreventionMenuManager implements Listener {
         Inventory gui = Bukkit.createInventory(null, 54,
                 Component.text("プレイヤー一覧")
                         .color(NamedTextColor.BLUE)
-                        .decorate(TextDecoration.BOLD));
+                        .decorate(TextDecoration.BOLD)
+                        .decoration(TextDecoration.ITALIC, false));
 
         for (int i = 0; i < Math.min(onlinePlayers.size(), 45); i++) {
             Player target = onlinePlayers.get(i);
@@ -122,7 +124,9 @@ public class GriefPreventionMenuManager implements Listener {
 
     private void openPermissionMenu(Player player, Player target) {
         String title = "権限設定: " + target.getName();
-        Inventory menu = Bukkit.createInventory(null, 27, Component.text(title).color(NamedTextColor.DARK_AQUA));
+        Inventory menu = Bukkit.createInventory(null, 27, Component.text(title)
+                .color(NamedTextColor.DARK_AQUA)
+                .decoration(TextDecoration.ITALIC, false));
 
         ItemStack playerHead = new ItemStack(Material.PLAYER_HEAD);
         SkullMeta skullMeta = (SkullMeta) playerHead.getItemMeta();
@@ -139,56 +143,50 @@ public class GriefPreventionMenuManager implements Listener {
 
         String targetUUID = target.getUniqueId().toString();
         ClaimPermission currentPermission = claim.getPermission(targetUUID);
-        boolean hasAccess = (currentPermission != null && currentPermission.ordinal() >= ClaimPermission.Access.ordinal());
-        boolean hasInventory = (currentPermission != null && currentPermission.ordinal() >= ClaimPermission.Inventory.ordinal());
-        boolean hasBuild = (currentPermission != null && currentPermission.ordinal() >= ClaimPermission.Build.ordinal());
+        boolean hasAccess = (currentPermission == ClaimPermission.Access);
+        boolean hasInventory = (currentPermission == ClaimPermission.Inventory);
+        boolean hasBuild = (currentPermission == ClaimPermission.Build);
 
         menu.setItem(11, createPermissionItem(
-                PlainTextComponentSerializer.plainText().serialize(Component.text("土地の訪問者").color(NamedTextColor.GREEN).decorate(TextDecoration.BOLD)),
+                LegacyComponentSerializer.legacyAmpersand().serialize(Component.text("土地の訪問者").color(NamedTextColor.GREEN).decorate(TextDecoration.BOLD)),
                 hasAccess,
                 Arrays.asList(
-                        Component.text("クリック/タップで訪問者権限を付与/解除").color(NamedTextColor.YELLOW).decorate(TextDecoration.BOLD),
+                        Component.text("土地内でレバーやドアなどを操作できる").color(NamedTextColor.YELLOW),
                         Component.text("").color(NamedTextColor.WHITE),
-                        Component.text("土地内でレバーやドアなどを操作できる").color(NamedTextColor.AQUA)
+                        Component.text("クリック/タップで権限を付与/解除").color(NamedTextColor.AQUA)
                 )
         ));
 
         menu.setItem(13, createPermissionItem(
-                PlainTextComponentSerializer.plainText().serialize(Component.text("土地の利用者").color(NamedTextColor.YELLOW).decorate(TextDecoration.BOLD)),
+                LegacyComponentSerializer.legacyAmpersand().serialize(Component.text("土地の利用者").color(NamedTextColor.YELLOW).decorate(TextDecoration.BOLD)),
                 hasInventory,
                 Arrays.asList(
-                        Component.text("クリック/タップで土地の利用者権限を付与/解除").color(NamedTextColor.YELLOW).decorate(TextDecoration.BOLD),
+                        Component.text("訪問者権限に加え、土地内のチェスト・かまど・樽などを使用できる").color(NamedTextColor.YELLOW),
                         Component.text("").color(NamedTextColor.WHITE),
-                        Component.text("訪問者権限に加え、土地内のチェスト・かまど・樽などを使用できる").color(NamedTextColor.AQUA)
+                        Component.text("クリック/タップで権限を付与/解除").color(NamedTextColor.AQUA)
                 )
         ));
 
         menu.setItem(15, createPermissionItem(
-                PlainTextComponentSerializer.plainText().serialize(Component.text("土地の建築者").color(NamedTextColor.RED).decorate(TextDecoration.BOLD)),
+                LegacyComponentSerializer.legacyAmpersand().serialize(Component.text("土地の建築者").color(NamedTextColor.RED).decorate(TextDecoration.BOLD)),
                 hasBuild,
                 Arrays.asList(
-                        Component.text("クリックして建築者権限を付与/解除").color(NamedTextColor.YELLOW).decorate(TextDecoration.BOLD),
+                        Component.text("利用者権限に加え、土地内でブロックの設置/破壊ができる").color(NamedTextColor.YELLOW),
                         Component.text("").color(NamedTextColor.WHITE),
-                        Component.text("利用者権限に加え、土地内でブロックの設置/破壊ができる").color(NamedTextColor.AQUA)
+                        Component.text("クリック/タップで権限を付与/解除").color(NamedTextColor.AQUA)
                 )
         ));
 
-        menu.setItem(18, createButton(
-                Material.ARROW,
-                PlainTextComponentSerializer.plainText().serialize(Component.text("戻る").color(NamedTextColor.YELLOW))
-        ));
-
-        ItemStack banItem = new ItemStack(Material.BARRIER);
+        ItemStack banItem = new ItemStack(Material.RED_DYE);
         ItemMeta banMeta = banItem.getItemMeta();
-        banMeta.displayName(Component.text("追放").color(NamedTextColor.RED).decorate(TextDecoration.BOLD));
+        banMeta.displayName(Component.text("追放")
+                .color(NamedTextColor.RED)
+                .decorate(TextDecoration.BOLD)
+                .decoration(TextDecoration.ITALIC, false));
         banItem.setItemMeta(banMeta);
-        menu.setItem(22, banItem);
-
-        ItemStack closeItem = new ItemStack(Material.BARRIER);
-        ItemMeta closeMeta = closeItem.getItemMeta();
-        closeMeta.displayName(Component.text("閉じる").color(NamedTextColor.RED).decorate(TextDecoration.BOLD));
-        closeItem.setItemMeta(closeMeta);
-        menu.setItem(26, closeItem);
+        menu.setItem(26, banItem);
+        menu.setItem(18, createMenuItem(Material.ARROW, "戻る", Arrays.asList("メインメニューに戻る")));
+        menu.setItem(22, createMenuItem(Material.BARRIER, "閉じる", Arrays.asList("メニューを閉じます")));
 
         player.openInventory(menu);
     }
@@ -197,7 +195,8 @@ public class GriefPreventionMenuManager implements Listener {
         Inventory gui = Bukkit.createInventory(null, 36,
                 Component.text("保護ブロック数購入")
                         .color(NamedTextColor.GOLD)
-                        .decorate(TextDecoration.BOLD));
+                        .decorate(TextDecoration.BOLD)
+                        .decoration(TextDecoration.ITALIC, false));
 
         gui.setItem(25, createPurchaseDisplayItem(player, amount));
 
@@ -214,8 +213,9 @@ public class GriefPreventionMenuManager implements Listener {
         gui.setItem(23, createButton(Material.RED_STAINED_GLASS_PANE, "-10000"));
 
         gui.setItem(16, createButton(Material.EMERALD_BLOCK, "購入確定"));
-        gui.setItem(27, createButton(Material.ARROW, "戻る"));
-        gui.setItem(35, createButton(Material.BARRIER, "閉じる"));
+        gui.setItem(27, createMenuItem(Material.ARROW, "戻る", Arrays.asList("メインメニューに戻る")));
+        gui.setItem(35, createMenuItem(Material.BARRIER, "閉じる",
+                Arrays.asList("メニューを閉じます")));
 
         player.openInventory(gui);
     }
@@ -238,18 +238,24 @@ public class GriefPreventionMenuManager implements Listener {
 
     private ItemStack createMenuItem(Material material, String name, List<String> lore, NamedTextColor nameColor) {
         ItemStack item = new ItemStack(material);
-        ItemMeta meta = item.getItemMeta();
-        meta.displayName(Component.text(name).color(nameColor));
-        List<Component> loreList = new ArrayList<>();
-        for (String line : lore) {
-            loreList.add(Component.text(line).color(NamedTextColor.GRAY));
-        }
-        meta.lore(loreList);
-        if (material.equals(Material.BARRIER)) {
-            meta.addEnchant(Enchantment.INFINITY, 1, false);
-            meta.addItemFlags(ItemFlag.HIDE_ENCHANTS);
-        }
-        item.setItemMeta(meta);
+        item.editMeta(meta -> {
+            meta.displayName(Component.text(name)
+                    .color(nameColor)
+                    .decoration(TextDecoration.ITALIC, false));
+
+            List<Component> loreComponents = new ArrayList<>();
+            for (String line : lore) {
+                loreComponents.add(Component.text(line)
+                        .color(NamedTextColor.GREEN)
+                        .decoration(TextDecoration.ITALIC, false));
+            }
+            meta.lore(loreComponents);
+
+            if (material.equals(Material.BARRIER)) {
+                meta.addEnchant(Enchantment.INFINITY, 1, false);
+                meta.addItemFlags(ItemFlag.HIDE_ENCHANTS);
+            }
+        });
         return item;
     }
 
@@ -261,70 +267,91 @@ public class GriefPreventionMenuManager implements Listener {
         Material material = granted ? Material.LIME_CONCRETE : Material.RED_CONCRETE;
         String status = granted ? "✓" : "✗";
         ItemStack item = new ItemStack(material);
-        ItemMeta meta = item.getItemMeta();
-        meta.displayName(Component.text(name + " (" + status + ")").color(NamedTextColor.WHITE));
-        meta.lore(lore); // 型をList<Component>に合わせる
-        item.setItemMeta(meta);
+        item.editMeta(meta -> {
+            meta.displayName(LegacyComponentSerializer.legacyAmpersand().deserialize(name + " (" + status + ")")
+                    .decoration(TextDecoration.ITALIC, false));
+            List<Component> newLore = new ArrayList<>();
+            for (Component line : lore) {
+                newLore.add(line.decoration(TextDecoration.ITALIC, false));
+            }
+            meta.lore(newLore);
+        });
         return item;
     }
 
     private ItemStack createPurchaseDisplayItem(Player player, int amount) {
         ItemStack item = new ItemStack(Material.PAPER);
-        ItemMeta meta = item.getItemMeta();
+        item.editMeta(meta -> {
+            double price = amount * claimBlockCost;
+            meta.displayName(Component.text("合計: " + df.format(amount) + "個")
+                    .color(NamedTextColor.AQUA)
+                    .decoration(TextDecoration.ITALIC, false));
 
-        double price = amount * claimBlockCost;
-        meta.displayName(Component.text("合計: " + df.format(amount)).color(NamedTextColor.AQUA));
-        List<Component> lore = new ArrayList<>();
-        lore.add(Component.text("価格: " + df.format(price) + "円").color(NamedTextColor.GREEN));
-        lore.add(Component.text("現在の所持金: " + df.format(economy.getBalance(player)) + "円").color(NamedTextColor.GREEN));
-        if (economy.getBalance(player) < price) {
-            lore.add(Component.text("所持金が足りません！").color(NamedTextColor.RED));
-        }
-        meta.lore(lore);
-        item.setItemMeta(meta);
+            List<Component> lore = new ArrayList<>();
+            lore.add(Component.text("価格: " + df.format(price) + "円")
+                    .color(NamedTextColor.GREEN)
+                    .decoration(TextDecoration.ITALIC, false));
+            lore.add(Component.text("現在の所持金: " + df.format(economy.getBalance(player)) + "円")
+                    .color(NamedTextColor.GREEN)
+                    .decoration(TextDecoration.ITALIC, false));
+            if (economy.getBalance(player) < price) {
+                lore.add(Component.text("所持金が足りません！")
+                        .color(NamedTextColor.RED)
+                        .decoration(TextDecoration.ITALIC, false));
+            }
+            meta.lore(lore);
+        });
         return item;
     }
 
     private ItemStack createButton(Material material, String name) {
         ItemStack item = new ItemStack(material);
-        ItemMeta meta = item.getItemMeta();
-        meta.displayName(Component.text(name).color(NamedTextColor.WHITE));
-        item.setItemMeta(meta);
+        item.editMeta(meta -> {
+            meta.displayName(Component.text(name)
+                    .color(NamedTextColor.YELLOW)
+                    .decoration(TextDecoration.ITALIC, false));
+        });
         return item;
     }
 
     private ItemStack createPlayerInfoItem(Player player) {
         ItemStack item = new ItemStack(Material.PLAYER_HEAD);
-        SkullMeta meta = (SkullMeta) item.getItemMeta();
+        item.editMeta(meta -> {
+            if (meta instanceof SkullMeta) {
+                SkullMeta skullMeta = (SkullMeta) meta;
+                skullMeta.setOwningPlayer(player);
+                skullMeta.displayName(Component.text(player.getName())
+                        .color(NamedTextColor.YELLOW)
+                        .decoration(TextDecoration.ITALIC, false));
 
-        meta.setOwningPlayer(player);
-        meta.displayName(Component.text(player.getName()).color(NamedTextColor.YELLOW));
+                Economy economy = TsubusabaUtils.getEconomy();
+                PlayerData playerData = this.griefPrevention.dataStore.getPlayerData(player.getUniqueId());
 
-        Economy economy = TsubusabaUtils.getEconomy();
-        PlayerData playerData = this.griefPrevention.dataStore.getPlayerData(player.getUniqueId());
+                List<Component> lore = new ArrayList<>();
+                if (economy != null) {
+                    lore.add(Component.text("所持金: " + economy.format(economy.getBalance(player)))
+                            .color(NamedTextColor.GREEN)
+                            .decoration(TextDecoration.ITALIC, false));
+                }
 
-        List<Component> lore = new ArrayList<>();
+                if (playerData != null) {
+                    int totalBlocks = playerData.getAccruedClaimBlocks() + playerData.getBonusClaimBlocks();
+                    lore.add(Component.text("保護ブロック: " + totalBlocks)
+                            .color(NamedTextColor.BLUE)
+                            .decoration(TextDecoration.ITALIC, false));
 
-        if (economy != null) {
-            lore.add(Component.text("所持金: " + economy.format(economy.getBalance(player)))
-                    .color(NamedTextColor.GREEN));
-        }
-
-        if (playerData != null) {
-            int totalBlocks = playerData.getAccruedClaimBlocks() + playerData.getBonusClaimBlocks();
-            lore.add(Component.text("保護ブロック: " + totalBlocks)
-                    .color(NamedTextColor.BLUE));
-
-            int remaining = playerData.getRemainingClaimBlocks();
-            int used = Math.max(0, totalBlocks - remaining);
-            lore.add(Component.text("使用中: " + used)
-                    .color(NamedTextColor.RED));
-            lore.add(Component.text("残り: " + remaining)
-                    .color(NamedTextColor.GREEN));
-        }
-
-        meta.lore(lore);
-        item.setItemMeta(meta);
+                    int remaining = playerData.getRemainingClaimBlocks();
+                    int used = Math.max(0, totalBlocks - remaining);
+                    lore.add(Component.text("使用中: " + used)
+                            .color(NamedTextColor.RED)
+                            .decoration(TextDecoration.ITALIC, false));
+                    lore.add(Component.text("残り: " + remaining)
+                            .color(NamedTextColor.GREEN)
+                            .decoration(TextDecoration.ITALIC, false));
+                }
+                meta.lore(lore);
+            }
+        });
         return item;
     }
 
@@ -408,11 +435,17 @@ public class GriefPreventionMenuManager implements Listener {
         SkullMeta meta = (SkullMeta) item.getItemMeta();
 
         meta.setOwningPlayer(target);
-        meta.displayName(Component.text(target.getName()).color(NamedTextColor.GREEN));
+        meta.displayName(Component.text(target.getName())
+                .color(NamedTextColor.GREEN)
+                .decoration(TextDecoration.ITALIC, false));
 
         List<Component> lore = Arrays.asList(
-                Component.text("クリック/タップで追加・管理").color(NamedTextColor.GOLD),
-                Component.text("オンライン").color(NamedTextColor.GREEN)
+                Component.text("クリック/タップで追加・管理")
+                        .color(NamedTextColor.GOLD)
+                        .decoration(TextDecoration.ITALIC, false),
+                Component.text("オンライン")
+                        .color(NamedTextColor.GREEN)
+                        .decoration(TextDecoration.ITALIC, false)
         );
         meta.lore(lore);
 
@@ -424,19 +457,32 @@ public class GriefPreventionMenuManager implements Listener {
         ItemStack item = new ItemStack(Material.GRASS_BLOCK);
         item.editMeta(meta -> {
             String name = getClaimName(claim);
-            meta.displayName(Component.text(name).color(NamedTextColor.GREEN));
+            meta.displayName(Component.text(name)
+                    .color(NamedTextColor.GREEN)
+                    .decoration(TextDecoration.ITALIC, false));
 
-            int area = claim.getArea();
+            int area = (int) ((claim.getGreaterBoundaryCorner().getX() - claim.getLesserBoundaryCorner().getX() + 1)
+                    * (claim.getGreaterBoundaryCorner().getZ() - claim.getLesserBoundaryCorner().getZ() + 1));
+
+            int centerX = (int) ((claim.getLesserBoundaryCorner().getX() + claim.getGreaterBoundaryCorner().getX()) / 2);
+            int centerZ = (int) ((claim.getLesserBoundaryCorner().getZ() + claim.getGreaterBoundaryCorner().getZ()) / 2);
+            int centerY = claim.getLesserBoundaryCorner().getWorld().getHighestBlockYAt(centerX, centerZ);
+
             Location center = new Location(claim.getLesserBoundaryCorner().getWorld(),
-                    (claim.getLesserBoundaryCorner().getX() + claim.getGreaterBoundaryCorner().getX()) / 2.0,
-                    claim.getLesserBoundaryCorner().getY(),
-                    (claim.getLesserBoundaryCorner().getZ() + claim.getGreaterBoundaryCorner().getZ()) / 2.0);
+                    centerX,
+                    centerY,
+                    centerZ);
 
             List<Component> lore = Arrays.asList(
-                    Component.text("面積: " + df.format(area) + " ブロック").color(NamedTextColor.AQUA),
-                    Component.text("座標: " + center.getBlockX() + ", " + center.getBlockY() + ", " + center.getBlockZ())
-                            .color(NamedTextColor.GREEN),
-                    Component.text("クリック/タップでテレポート").color(NamedTextColor.GOLD)
+                    Component.text("面積: " + df.format(area) + " ブロック")
+                            .color(NamedTextColor.AQUA)
+                            .decoration(TextDecoration.ITALIC, false),
+                    Component.text("座標: X:" + center.getBlockX() + ", Y:" + center.getBlockY() + ", Z:" + center.getBlockZ())
+                            .color(NamedTextColor.GREEN)
+                            .decoration(TextDecoration.ITALIC, false),
+                    Component.text("クリック/タップでテレポート")
+                            .color(NamedTextColor.GOLD)
+                            .decoration(TextDecoration.ITALIC, false)
             );
             meta.lore(lore);
         });
@@ -575,67 +621,48 @@ public class GriefPreventionMenuManager implements Listener {
         player.playSound(player.getLocation(), Sound.UI_BUTTON_CLICK, 1.0f, 1.2f);
 
         if (itemName.equals("追放")) {
-            player.performCommand("untrust " + target.getName());
+            claim.dropPermission(target.getUniqueId().toString());
             player.sendMessage(Component.text(target.getName() + " を土地から追放しました。").color(NamedTextColor.RED));
             player.playSound(player.getLocation(), Sound.ENTITY_PLAYER_LEVELUP, 1.0f, 1.5f);
-            player.closeInventory();
-
-        } else {
-            String cleanedItemName = itemName.replace(" (✓)", "").replace(" (✗)", "");
-            ClaimPermission permissionToToggle = null;
-            String message;
-
-            switch (cleanedItemName) {
-                case "土地の訪問者":
-                    permissionToToggle = ClaimPermission.Access;
-                    message = "訪問者";
-                    break;
-                case "土地の利用者":
-                    permissionToToggle = ClaimPermission.Inventory;
-                    message = "利用者";
-                    break;
-                case "土地の建築者":
-                    permissionToToggle = ClaimPermission.Build;
-                    message = "建築者";
-                    break;
-                default:
-                    player.sendMessage(Component.text("不明な権限タイプです。").color(NamedTextColor.RED));
-                    return;
-            }
-
-            ClaimPermission currentPermission = claim.getPermission(target.getUniqueId().toString());
-            if (currentPermission != null && currentPermission.ordinal() >= permissionToToggle.ordinal()) {
-                if (currentPermission.ordinal() == permissionToToggle.ordinal()) {
-                    ClaimPermission downgradedPermission = null;
-                    if (permissionToToggle == ClaimPermission.Inventory) {
-                        downgradedPermission = ClaimPermission.Build;
-                    } else if (permissionToToggle == ClaimPermission.Build) {
-                        downgradedPermission = ClaimPermission.Access;
-                    } else if (permissionToToggle == ClaimPermission.Access) {
-                        player.performCommand("untrust " + target.getName());
-                        player.sendMessage(Component.text(target.getName() + " の権限を解除しました。").color(NamedTextColor.RED));
-                        griefPrevention.dataStore.saveClaim(claim);
-                        player.playSound(player.getLocation(), Sound.ENTITY_PLAYER_LEVELUP, 1.0f, 1.5f);
-                        player.closeInventory();
-                        return;
-                    }
-
-                    if (downgradedPermission != null) {
-                        claim.setPermission(target.getUniqueId().toString(), downgradedPermission);
-                        player.sendMessage(Component.text(target.getName() + " の権限をダウングレードしました。").color(NamedTextColor.YELLOW));
-                    }
-                } else {
-                    player.sendMessage(Component.text(target.getName() + " は既に上位の権限を持っています。").color(NamedTextColor.GRAY));
-                }
-            } else {
-                claim.setPermission(target.getUniqueId().toString(), permissionToToggle);
-                player.sendMessage(Component.text(target.getName() + " に " + message + " 権限を付与しました。").color(NamedTextColor.GREEN));
-            }
-
             griefPrevention.dataStore.saveClaim(claim);
-            player.playSound(player.getLocation(), Sound.ENTITY_PLAYER_LEVELUP, 1.0f, 1.5f);
             player.closeInventory();
+            return;
         }
+
+        String cleanedItemName = itemName.replace(" (✓)", "").replace(" (✗)", "");
+        ClaimPermission permissionToToggle;
+        String message;
+
+        switch (cleanedItemName) {
+            case "土地の訪問者":
+                permissionToToggle = ClaimPermission.Access;
+                message = "訪問者";
+                break;
+            case "土地の利用者":
+                permissionToToggle = ClaimPermission.Inventory;
+                message = "利用者";
+                break;
+            case "土地の建築者":
+                permissionToToggle = ClaimPermission.Build;
+                message = "建築者";
+                break;
+            default:
+                player.sendMessage(Component.text("不明な権限タイプです。").color(NamedTextColor.RED));
+                return;
+        }
+
+        ClaimPermission currentPermission = claim.getPermission(target.getUniqueId().toString());
+        if (currentPermission != null && currentPermission.ordinal() == permissionToToggle.ordinal()) {
+            claim.dropPermission(target.getUniqueId().toString());
+            player.sendMessage(Component.text(target.getName() + " の" + message + "権限を解除しました。").color(NamedTextColor.RED));
+        } else {
+            claim.setPermission(target.getUniqueId().toString(), permissionToToggle);
+            player.sendMessage(Component.text(target.getName() + " に " + message + " 権限を付与しました。").color(NamedTextColor.GREEN));
+        }
+
+        griefPrevention.dataStore.saveClaim(claim);
+        player.playSound(player.getLocation(), Sound.ENTITY_PLAYER_LEVELUP, 1.0f, 1.5f);
+        player.closeInventory();
     }
 
     private void handleBlockPurchaseClick(Player player, String itemName) {
@@ -718,12 +745,12 @@ public class GriefPreventionMenuManager implements Listener {
                     if (loreText.startsWith("座標: ")) {
                         try {
                             String coordText = loreText.replace("座標: ", "");
-                            String[] coords = coordText.split(", ");
-                            int x = Integer.parseInt(coords[0]);
-                            int y = Integer.parseInt(coords[1]);
-                            int z = Integer.parseInt(coords[2]);
+                            String[] parts = coordText.split(", ");
 
-                            Location teleportLoc = new Location(player.getWorld(), x + 0.5, y + 1, z + 0.5);
+                            int x = Integer.parseInt(parts[0].replace("X:", ""));
+                            int z = Integer.parseInt(parts[2].replace("Z:", ""));
+
+                            Location teleportLoc = new Location(player.getWorld(), x + 0.5, player.getWorld().getHighestBlockYAt(x, z) + 1, z + 0.5);
                             player.teleport(teleportLoc);
                             player.sendMessage(Component.text("土地の中心にテレポートしました！").color(NamedTextColor.GREEN));
                             player.playSound(player.getLocation(), Sound.ENTITY_ENDERMAN_TELEPORT, 1.0f, 1.0f);
