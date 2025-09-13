@@ -1,5 +1,9 @@
 package net.tsubu.tsubusabautils.manager;
 
+import me.ryanhamshire.GPFlags.Flag;
+import me.ryanhamshire.GPFlags.FlagManager;
+import me.ryanhamshire.GPFlags.GPFlags;
+import me.ryanhamshire.GPFlags.flags.FlagDefinition;
 import me.ryanhamshire.GriefPrevention.Claim;
 import me.ryanhamshire.GriefPrevention.GriefPrevention;
 import me.ryanhamshire.GriefPrevention.PlayerData;
@@ -46,6 +50,39 @@ public class GriefPreventionMenuManager implements Listener {
     private static final DecimalFormat df = new DecimalFormat("#,##0");
     private final double claimBlockCost;
 
+    private final List<FlagDisplay> flagsToShow = List.of(
+            new FlagDisplay("noexplosiondamage", "爆発ダメージ防止", Material.TNT, 10,
+                    List.of(Component.text("爆発によるダメージを防ぎます").color(NamedTextColor.YELLOW).decoration(TextDecoration.ITALIC, false))),
+            new FlagDisplay("allowpvp", "PvP", Material.IRON_SWORD, 11,
+                    List.of(Component.text("PvPの許可を設定できます").color(NamedTextColor.YELLOW).decoration(TextDecoration.ITALIC, false))),
+            new FlagDisplay("nomobspawns", "モブのスポーン防止", Material.COW_SPAWN_EGG, 12,
+                    List.of(Component.text("土地内でのモブのスポーンを防ぎます").color(NamedTextColor.YELLOW).decoration(TextDecoration.ITALIC, false))),
+            new FlagDisplay("nomonsterspawns", "敵モブのスポーン防止", Material.ZOMBIE_SPAWN_EGG, 13,
+                    List.of(Component.text("土地内での敵モブのスポーンを防ぎます※外で湧いた敵モブは侵入できます").color(NamedTextColor.YELLOW).decoration(TextDecoration.ITALIC, false))),
+            new FlagDisplay("nomonsters", "敵モブ防止", Material.BARRIER, 14,
+                    List.of(Component.text("土地内での敵モブのスポーンと侵入を防ぎます").color(NamedTextColor.YELLOW).decoration(TextDecoration.ITALIC, false))),
+            new FlagDisplay("nocroptrampling", "畑踏みつけ防止", Material.GOLDEN_HOE, 15,
+                    List.of(Component.text("農作物が踏み荒らされるのを防ぎます").color(NamedTextColor.YELLOW).decoration(TextDecoration.ITALIC, false))),
+            new FlagDisplay("allowwitherdamage", "ウィザーダメージ許可", Material.WITHER_ROSE, 15,
+                    List.of(Component.text("ウィザーによるダメージの許可を設定できます").color(NamedTextColor.YELLOW).decoration(TextDecoration.ITALIC, false))),
+            new FlagDisplay("nofiredamage", "火ダメージ防止", Material.FLINT_AND_STEEL, 16,
+                    List.of(Component.text("火によるダメージを防ぎます").color(NamedTextColor.YELLOW).decoration(TextDecoration.ITALIC, false))),
+            new FlagDisplay("nofirespread", "火の延焼防止", Material.LAVA_BUCKET, 19,
+                    List.of(Component.text("火の延焼を防ぎます").color(NamedTextColor.YELLOW).decoration(TextDecoration.ITALIC, false))),
+            new FlagDisplay("nofalldamage", "落下ダメージ防止", Material.DIAMOND_BOOTS, 20,
+                    List.of(Component.text("落下ダメージを防ぎます").color(NamedTextColor.YELLOW).decoration(TextDecoration.ITALIC, false))),
+            new FlagDisplay("nofluidflow", "流体の流れ防止", Material.WATER_BUCKET, 21,
+                    List.of(Component.text("流体の流れを防ぎます").color(NamedTextColor.YELLOW).decoration(TextDecoration.ITALIC, false))),
+            new FlagDisplay("nogrowth", "作物の成長防止", Material.WHEAT_SEEDS, 22,
+                    List.of(Component.text("作物の成長を防ぎます").color(NamedTextColor.YELLOW).decoration(TextDecoration.ITALIC, false))),
+            new FlagDisplay("noiceform", "氷の生成防止", Material.ICE, 23,
+                    List.of(Component.text("氷の生成を防ぎます").color(NamedTextColor.YELLOW).decoration(TextDecoration.ITALIC, false))),
+            new FlagDisplay("noleafdecay", "葉の自然消滅防止", Material.OAK_LEAVES, 24,
+                    List.of(Component.text("葉の自然消滅を防ぎます").color(NamedTextColor.YELLOW).decoration(TextDecoration.ITALIC, false))),
+            new FlagDisplay("nosnowform", "雪の生成防止", Material.SNOW_BLOCK, 25,
+                    List.of(Component.text("雪が降らなくなります").color(NamedTextColor.YELLOW).decoration(TextDecoration.ITALIC, false)))
+    );
+
     private File claimsFile;
     private FileConfiguration claimsConfig;
 
@@ -78,10 +115,12 @@ public class GriefPreventionMenuManager implements Listener {
     }
 
     public void openMainMenu(Player player) {
-        Inventory inv = Bukkit.createInventory(null, 27, Component.text("土地保護メニュー").color(NamedTextColor.BLUE));
+        Inventory inv = Bukkit.createInventory(null, 27, Component.text("土地メニュー").color(NamedTextColor.BLUE));
 
         inv.setItem(22, createPlayerInfoItem(player));
 
+        inv.setItem(1, createMenuItem(Material.REDSTONE_TORCH, "土地保護設定",
+                Arrays.asList("現在いる土地の保護を", "設定できます")));
         inv.setItem(10, createMenuItem(Material.NAME_TAG, "土地名前変更",
                 Arrays.asList("現在いる土地の名前を", "変更します")));
         inv.setItem(12, createMenuItem(Material.PLAYER_HEAD, "プレイヤー追加/管理",
@@ -430,6 +469,89 @@ public class GriefPreventionMenuManager implements Listener {
                 .open(player);
     }
 
+    private void openFlagMenu(Player player) {
+        Claim claim = griefPrevention.dataStore.getClaimAt(player.getLocation(), false, null);
+        if (claim == null) {
+            player.sendMessage(Component.text("ここは保護されていない土地です！").color(NamedTextColor.RED));
+            return;
+        }
+
+        // 自分の土地かチェック
+        if (!claim.getOwnerID().equals(player.getUniqueId()) && !player.hasPermission("griefprevention.adminclaims")) {
+            player.sendMessage(Component.text("この土地の設定権限がありません！").color(NamedTextColor.RED));
+            player.closeInventory();
+            return;
+        }
+
+        GPFlags gpFlags = (GPFlags) Bukkit.getPluginManager().getPlugin("GPFlags");
+        if (gpFlags == null) {
+            player.sendMessage(Component.text("GPFlags プラグインが見つかりません。").color(NamedTextColor.RED));
+            return;
+        }
+
+        FlagManager flagManager = gpFlags.getFlagManager();
+        Inventory gui = Bukkit.createInventory(null, 36, Component.text("土地保護設定")
+                .color(NamedTextColor.RED)
+                .decorate(TextDecoration.BOLD));
+
+        ItemStack landItem = new ItemStack(Material.GRASS_BLOCK);
+        landItem.editMeta(landMeta -> {
+            landMeta.displayName(Component.text(getClaimName(claim))
+                    .color(NamedTextColor.GREEN)
+                    .decoration(TextDecoration.ITALIC, false));
+        });
+        gui.setItem(4, landItem);
+
+
+        for (FlagDisplay fd : flagsToShow) {
+            FlagDefinition def = flagManager.getFlagDefinitions().stream()
+                    .filter(d -> d.getName().equalsIgnoreCase(fd.id))
+                    .findFirst()
+                    .orElse(null);
+            if (def == null) continue;
+
+            boolean isSet = flagManager.getFlags(claim).stream()
+                    .filter(f -> f.getFlagDefinition().equals(def))
+                    .findFirst()
+                    .map(Flag::getSet)
+                    .orElse(false);
+
+            ItemStack item = new ItemStack(fd.material);
+            ItemMeta meta = item.getItemMeta();
+            if (meta == null) continue;
+
+            meta.displayName(Component.text(fd.displayName)
+                    .color(NamedTextColor.YELLOW)
+                    .decoration(TextDecoration.ITALIC, false));
+
+            List<Component> lore = new ArrayList<>(fd.lore);
+            lore.add(Component.text("現在の状態: " + (isSet ? "有効" : "無効"))
+                    .color(isSet ? NamedTextColor.GREEN : NamedTextColor.RED)
+                    .decoration(TextDecoration.ITALIC, false));
+            lore.add(Component.text("クリック/タップで切替")
+                    .color(NamedTextColor.AQUA)
+                    .decoration(TextDecoration.ITALIC, false));
+
+            meta.lore(lore);
+
+            if (isSet) {
+                meta.addEnchant(Enchantment.INFINITY, 1, true);
+                meta.addItemFlags(ItemFlag.HIDE_ENCHANTS);
+            } else {
+                meta.getEnchants().keySet().forEach(meta::removeEnchant);
+            }
+
+            item.setItemMeta(meta);
+            gui.setItem(fd.slot, item);
+        }
+
+        gui.setItem(27, createMenuItem(Material.ARROW, "戻る", List.of("メインメニューに戻る")));
+        gui.setItem(35, createMenuItem(Material.BARRIER, "閉じる", List.of("メニューを閉じます")));
+
+        player.openInventory(gui);
+    }
+
+
     private ItemStack createPlayerHeadItem(Player target) {
         ItemStack item = new ItemStack(Material.PLAYER_HEAD);
         SkullMeta meta = (SkullMeta) item.getItemMeta();
@@ -511,8 +633,9 @@ public class GriefPreventionMenuManager implements Listener {
 
         String titleText = PlainTextComponentSerializer.plainText().serialize(titleComponent);
 
-        if (titleText.contains("土地保護メニュー") || titleText.contains("プレイヤー一覧") ||
-                titleText.contains("権限設定") || titleText.contains("土地一覧") || titleText.equals("保護ブロック数購入")) {
+        if (titleText.contains("土地メニュー") || titleText.contains("プレイヤー一覧") ||
+                titleText.contains("権限設定") || titleText.contains("土地一覧") || titleText.equals("保護ブロック数購入") ||
+                titleText.equals("土地保護設定")) {
             event.setCancelled(true);
         }
 
@@ -531,7 +654,7 @@ public class GriefPreventionMenuManager implements Listener {
 
         String itemName = PlainTextComponentSerializer.plainText().serialize(meta.displayName());
 
-        if (titleText.equals("土地保護メニュー")) {
+        if (titleText.equals("土地メニュー")) {
             handleMainMenuClick(player, itemName);
         } else if (titleText.equals("プレイヤー一覧")) {
             handlePlayerListClick(player, itemName, clicked);
@@ -541,6 +664,8 @@ public class GriefPreventionMenuManager implements Listener {
             handleBlockPurchaseClick(player, itemName);
         } else if (titleText.contains("土地一覧 (Page ")) {
             handleClaimListClick(player, itemName, clicked, titleText);
+        } else if (titleText.equals("土地保護設定")) {
+            handleFlagMenuClick(player, clicked);
         }
     }
 
@@ -548,6 +673,7 @@ public class GriefPreventionMenuManager implements Listener {
         player.playSound(player.getLocation(), Sound.UI_BUTTON_CLICK, 1.0f, 1.0f);
 
         switch (itemName) {
+            case "土地保護設定" -> openFlagMenu(player);
             case "土地名前変更" -> openRenameAnvil(player);
             case "プレイヤー追加/管理" -> openPlayerListMenu(player);
             case "土地一覧" -> openClaimListMenu(player, 0);
@@ -556,6 +682,90 @@ public class GriefPreventionMenuManager implements Listener {
                 openBlockPurchaseMenu(player, 0);
             }
             case "閉じる" -> player.closeInventory();
+        }
+    }
+
+    private void handleFlagMenuClick(Player player, ItemStack clicked) {
+        if (clicked == null || !clicked.hasItemMeta()) return;
+
+        String clickedName = PlainTextComponentSerializer.plainText().serialize(Objects.requireNonNull(clicked.getItemMeta().displayName()));
+
+        if (clickedName.equalsIgnoreCase("戻る")) {
+            player.playSound(player.getLocation(), Sound.UI_BUTTON_CLICK, 1.0f, 1.0f);
+            openMainMenu(player);
+            return;
+        }
+        if (clickedName.equalsIgnoreCase("閉じる")) {
+            player.playSound(player.getLocation(), Sound.UI_BUTTON_CLICK, 1.0f, 1.0f);
+            player.closeInventory();
+            return;
+        }
+
+        Claim claim = griefPrevention.dataStore.getClaimAt(player.getLocation(), false, null);
+        if (claim == null) {
+            player.sendMessage(Component.text("ここは保護されていない土地です！").color(NamedTextColor.RED));
+            player.closeInventory();
+            return;
+        }
+        String claimName = getClaimName(claim);
+        if (clickedName.equals(claimName)) {
+            return;
+        }
+
+        GPFlags gpFlags = (GPFlags) Bukkit.getPluginManager().getPlugin("GPFlags");
+        FlagManager flagManager = gpFlags.getFlagManager();
+
+        // displayName からフラグIDを取得
+        String flagId = flagsToShow.stream()
+                .filter(fd -> fd.displayName.equals(clickedName))
+                .map(fd -> fd.id)
+                .findFirst()
+                .orElse(null);
+
+        if (flagId == null) {
+            player.sendMessage(Component.text("フラグが見つかりません: " + clickedName).color(NamedTextColor.RED));
+            return;
+        }
+
+        FlagDefinition def = flagManager.getFlagDefinitions().stream()
+                .filter(d -> d.getName().equalsIgnoreCase(flagId))
+                .findFirst()
+                .orElse(null);
+
+        if (def == null) {
+            player.sendMessage(Component.text("フラグ定義が見つかりません: " + flagId).color(NamedTextColor.RED));
+            return;
+        }
+
+        Flag currentFlag = flagManager.getFlags(claim).stream()
+                .filter(f -> f.getFlagDefinition().equals(def))
+                .findFirst()
+                .orElse(null);
+
+        boolean newState = !(currentFlag != null && currentFlag.getSet());
+
+        flagManager.setFlag(claim.getID().toString(), def, newState, player);
+        flagManager.save();
+
+        player.sendMessage(Component.text(clickedName + " を " + (newState ? "有効" : "無効") + " にしました").color(NamedTextColor.GREEN));
+        player.playSound(player.getLocation(), Sound.ENTITY_EXPERIENCE_ORB_PICKUP, 1.0f, 1.0f);
+
+        openFlagMenu(player);
+    }
+
+    private static class FlagDisplay {
+        public final String id;
+        public final String displayName;
+        public final Material material;
+        public final int slot;
+        public final List<Component> lore;
+
+        public FlagDisplay(String id, String displayName, Material material, int slot, List<Component> lore) {
+            this.id = id;
+            this.displayName = displayName;
+            this.material = material;
+            this.slot = slot;
+            this.lore = lore;
         }
     }
 
