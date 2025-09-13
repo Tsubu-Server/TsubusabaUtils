@@ -167,10 +167,10 @@ public class GUIManager implements Listener {
                 openGUI(player, currentPage + 1);
             } else if (slot == 49 && itemName.contains("閉じる")) {
                 player.closeInventory();
-            } else {
-                if (clickedItem.getType() == Material.PLAYER_HEAD && slot < 45) {
+            } else if (clickedItem.getType() == Material.PLAYER_HEAD) {
+                if (slot < 45) { // 他のプレイヤーの頭
                     if (meta instanceof SkullMeta skullMeta && skullMeta.getOwningPlayer() != null) {
-                        String targetName = skullMeta.getOwningPlayer().getName();
+                        String targetName = PlainTextComponentSerializer.plainText().serialize(meta.displayName());
                         Player target = Bukkit.getPlayer(targetName);
 
                         if (target != null && target.isOnline()) {
@@ -182,6 +182,7 @@ public class GUIManager implements Listener {
                         }
                     }
                 }
+                // 自分の頭（スロット48）はクリックしても何もしない
             }
         }
     }

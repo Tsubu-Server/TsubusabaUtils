@@ -1,5 +1,6 @@
-package net.tsubu.tsubusabautils;
+package net.tsubu.tsubusabautils.command;
 
+import net.tsubu.tsubusabautils.TsubusabaUtils;
 import org.bukkit.command.Command;
 import org.bukkit.command.CommandExecutor;
 import org.bukkit.command.CommandSender;

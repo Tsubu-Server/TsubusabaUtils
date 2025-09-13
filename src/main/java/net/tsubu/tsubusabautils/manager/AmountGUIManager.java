@@ -81,7 +81,11 @@ public class AmountGUIManager implements Listener {
 
     private ItemStack createButton(Material material, String name) {
         ItemStack item = new ItemStack(material);
-        item.editMeta(meta -> meta.displayName(Component.text(name).color(NamedTextColor.AQUA)));
+        item.editMeta(meta -> {
+            meta.displayName(Component.text(name)
+                    .color(NamedTextColor.AQUA)
+                    .decoration(TextDecoration.ITALIC, false));
+        });
         return item;
     }
 

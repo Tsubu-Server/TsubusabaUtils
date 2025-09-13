@@ -1,4 +1,15 @@
 # config.yml
+home-groups:
+  home-upgrade-1:
+    displayName: "ホーム枠 3個追加"
+    price: 5000.0
+    luckPermsGroup: "homeupgrade2"
+
+  home-upgrade-2:
+    displayName: "ホーム枠 8個追加"
+    price: 10000.0
+    luckPermsGroup: "homeupgrade3"
+
 global-rewards: # 職業を問わずグループ追加
   3: job2
 
