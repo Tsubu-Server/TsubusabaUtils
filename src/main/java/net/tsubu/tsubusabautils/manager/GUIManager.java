@@ -80,12 +80,18 @@ public class GUIManager implements Listener {
 
         meta.setOwningPlayer(target);
         meta.displayName(Component.text(target.getName())
-                .color(NamedTextColor.GREEN));
+                .color(NamedTextColor.GREEN)
+                .decoration(TextDecoration.ITALIC, false));
 
         List<Component> lore = Arrays.asList(
-                Component.text("クリック/タップして送金")
-                        .color(NamedTextColor.GOLD).decorate(TextDecoration.BOLD),
-                Component.text("オンライン").color(NamedTextColor.GREEN).decorate(TextDecoration.BOLD)
+                Component.text("クリック/タップで送金")
+                        .color(NamedTextColor.GOLD)
+                        .decorate(TextDecoration.BOLD)
+                        .decoration(TextDecoration.ITALIC, false),
+                Component.text("オンライン")
+                        .color(NamedTextColor.GREEN)
+                        .decorate(TextDecoration.BOLD)
+                        .decoration(TextDecoration.ITALIC, false)
         );
         meta.lore(lore);
 
@@ -99,7 +105,8 @@ public class GUIManager implements Listener {
 
         meta.setOwningPlayer(player);
         meta.displayName(Component.text(player.getName())
-                .color(NamedTextColor.AQUA));
+                .color(NamedTextColor.AQUA)
+                .decoration(TextDecoration.ITALIC, false));
 
         Economy economy = TsubusabaUtils.getEconomy();
         String balance = "N/A";
@@ -109,7 +116,9 @@ public class GUIManager implements Listener {
 
         List<Component> lore = Arrays.asList(
                 Component.text("所持金: " + balance)
-                        .color(NamedTextColor.YELLOW).decorate(TextDecoration.BOLD)
+                        .color(NamedTextColor.YELLOW)
+                        .decorate(TextDecoration.BOLD)
+                        .decoration(TextDecoration.ITALIC, false)
         );
         meta.lore(lore);
 
@@ -119,7 +128,9 @@ public class GUIManager implements Listener {
 
     private ItemStack createNavigationItem(Material material, String name, NamedTextColor color) {
         ItemStack item = new ItemStack(material);
-        item.editMeta(meta -> meta.displayName(Component.text(name).color(color)));
+        item.editMeta(meta -> meta.displayName(Component.text(name)
+                .color(color)
+                .decoration(TextDecoration.ITALIC, false)));
         return item;
     }
 

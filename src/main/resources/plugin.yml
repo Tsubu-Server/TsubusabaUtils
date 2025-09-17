@@ -20,6 +20,11 @@ commands:
   gmenu:
     description: Open GPMenu GUI
     usage: /gmenu
+  adminsell:
+    description: Open admin shop buyback GUI
+    usage: /<command> [reload]
+    permission: tsubusabautils.adminsell
+    permission-message: You don't have permission to use this command.
 
 permissions:
   sendmoney.use:
@@ -27,4 +32,10 @@ permissions:
     default: true
   sendmoney.admin:
     description: Administrative permissions for SendMoney
+    default: op
+  tsubusabautils.adminsell:
+    description: Allow using adminsell command
+    default: true
+  tsubusabautils.adminsell.reload:
+    description: Allow reloading adminsell configuration
     default: op

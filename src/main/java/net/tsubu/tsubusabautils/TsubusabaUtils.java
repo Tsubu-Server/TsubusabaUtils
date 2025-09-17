@@ -1,10 +1,7 @@
 package net.tsubu.tsubusabautils;
 
 import net.milkbowl.vault.economy.Economy;
-import net.tsubu.tsubusabautils.command.DeathCommand;
-import net.tsubu.tsubusabautils.command.GMenuCommand;
-import net.tsubu.tsubusabautils.command.SendMoneyCommand;
-import net.tsubu.tsubusabautils.command.ThomeCommand;
+import net.tsubu.tsubusabautils.command.*;
 import net.tsubu.tsubusabautils.listener.JobJoinListener;
 import net.tsubu.tsubusabautils.listener.JobLevelListener;
 import net.tsubu.tsubusabautils.manager.*;
@@ -35,6 +32,7 @@ public class TsubusabaUtils extends JavaPlugin implements Listener {
     private ChatManager chatManager;
     private InvincibilityManager invincibilityManager;
     private GriefPreventionMenuManager griefPreventionMenuManager;
+    private AdminSellManager adminSellManager;
 
     @Override
     public void onEnable() {
@@ -74,12 +72,14 @@ public class TsubusabaUtils extends JavaPlugin implements Listener {
         this.amountGUIManager = new AmountGUIManager(this);
         this.chatManager = new ChatManager(this);
         this.invincibilityManager = new InvincibilityManager();
-        this.griefPreventionMenuManager = new GriefPreventionMenuManager(this, griefPrevention,economy);
+        this.griefPreventionMenuManager = new GriefPreventionMenuManager(this, griefPrevention, economy);
+        this.adminSellManager = new AdminSellManager(this, economy);
 
         Objects.requireNonNull(this.getCommand("sendmoney")).setExecutor(new SendMoneyCommand(this));
         Objects.requireNonNull(this.getCommand("thome")).setExecutor(new ThomeCommand(this));
         Objects.requireNonNull(this.getCommand("returndeath")).setExecutor(new DeathCommand(this, invincibilityManager));
         Objects.requireNonNull(this.getCommand("gmenu")).setExecutor(new GMenuCommand(this));
+        Objects.requireNonNull(this.getCommand("adminsell")).setExecutor(new AdminSellCommand(this));
 
         getServer().getPluginManager().registerEvents(this, this);
         getServer().getPluginManager().registerEvents(guiManager, this);
@@ -87,6 +87,7 @@ public class TsubusabaUtils extends JavaPlugin implements Listener {
         getServer().getPluginManager().registerEvents(chatManager, this);
         getServer().getPluginManager().registerEvents(invincibilityManager, this);
         getServer().getPluginManager().registerEvents(griefPreventionMenuManager, this);
+        getServer().getPluginManager().registerEvents(adminSellManager, this);
         getServer().getPluginManager().registerEvents(new JobJoinListener(this), this);
         getServer().getPluginManager().registerEvents(new JobLevelListener(this), this);
 
@@ -154,5 +155,9 @@ public class TsubusabaUtils extends JavaPlugin implements Listener {
 
     public GriefPreventionMenuManager getGriefPreventionMenuManager() {
         return griefPreventionMenuManager;
+    }
+
+    public AdminSellManager getAdminSellManager() {
+        return adminSellManager;
     }
 }

@@ -48,7 +48,7 @@ public class GriefPreventionMenuManager implements Listener {
     private final Map<UUID, Integer> pendingPurchaseAmount = new HashMap<>();
     private final Map<UUID, Integer> pendingSellAmount = new HashMap<>();
     private static final long COOLDOWN_MS = 100;
-    private static final DecimalFormat df = new DecimalFormat("#,##0");
+    private static final DecimalFormat df = new DecimalFormat("#,##0.#");
     private final double claimBlockCost;
     private final double sellRate;
 
@@ -298,7 +298,8 @@ public class GriefPreventionMenuManager implements Listener {
         gui.setItem(22, createButton(Material.RED_STAINED_GLASS_PANE, "-1000"));
         gui.setItem(23, createButton(Material.RED_STAINED_GLASS_PANE, "-10000"));
 
-        gui.setItem(16, createButton(Material.EMERALD_BLOCK, "購入確定"));
+        gui.setItem(16, createMenuItemWithLore(Material.EMERALD_BLOCK, "購入確定",
+                Arrays.asList("クリック/タップで購入")));
         gui.setItem(27, createMenuItem(Material.ARROW, "戻る", Arrays.asList("メインメニューに戻る")));
         gui.setItem(35, createMenuItem(Material.BARRIER, "閉じる",
                 Arrays.asList("メニューを閉じます")));
@@ -329,7 +330,8 @@ public class GriefPreventionMenuManager implements Listener {
         gui.setItem(21, createButton(Material.RED_STAINED_GLASS_PANE, "-100"));
         gui.setItem(22, createButton(Material.RED_STAINED_GLASS_PANE, "-1000"));
         gui.setItem(23, createButton(Material.RED_STAINED_GLASS_PANE, "-10000"));
-        gui.setItem(16, createButton(Material.GOLD_BLOCK, "売却確定"));
+        gui.setItem(16, createMenuItemWithLore(Material.GOLD_BLOCK, "売却確定",
+                Arrays.asList("クリック/タップで売却")));
         gui.setItem(27, createMenuItem(Material.ARROW, "戻る", Arrays.asList("メインメニューに戻る")));
         gui.setItem(35, createMenuItem(Material.BARRIER, "閉じる", Arrays.asList("メニューを閉じます")));
 
@@ -406,6 +408,24 @@ public class GriefPreventionMenuManager implements Listener {
 
     private ItemStack createMenuItem(Material material, String name, List<String> lore) {
         return createMenuItem(material, name, lore, NamedTextColor.YELLOW);
+    }
+
+    private ItemStack createMenuItemWithLore(Material material, String name, List<String> lore) {
+        ItemStack item = new ItemStack(material);
+        item.editMeta(meta -> {
+            meta.displayName(Component.text(name)
+                    .color(NamedTextColor.AQUA)
+                    .decoration(TextDecoration.ITALIC, false));
+
+            List<Component> loreComponents = new ArrayList<>();
+            for (String line : lore) {
+                loreComponents.add(Component.text(line)
+                        .color(NamedTextColor.GOLD)
+                        .decoration(TextDecoration.ITALIC, false));
+            }
+            meta.lore(loreComponents);
+        });
+        return item;
     }
 
     private ItemStack createPermissionItem(String name, boolean granted, List<Component> lore) {
