@@ -115,7 +115,7 @@ public class GUIManager implements Listener {
         }
 
         List<Component> lore = Arrays.asList(
-                Component.text("所持金: " + balance)
+                Component.text("所持金: " + balance + "$")
                         .color(NamedTextColor.YELLOW)
                         .decorate(TextDecoration.BOLD)
                         .decoration(TextDecoration.ITALIC, false)

@@ -3,13 +3,16 @@ package net.tsubu.tsubusabautils;
 import net.milkbowl.vault.economy.Economy;
 import net.tsubu.tsubusabautils.command.*;
 import net.tsubu.tsubusabautils.listener.JobJoinListener;
+import net.tsubu.tsubusabautils.listener.JobLeaveListener;
 import net.tsubu.tsubusabautils.listener.JobLevelListener;
 import net.tsubu.tsubusabautils.manager.*;
+import org.bukkit.Bukkit;
 import org.bukkit.Location;
 import org.bukkit.entity.Player;
 import org.bukkit.event.EventHandler;
 import org.bukkit.event.Listener;
 import org.bukkit.event.entity.PlayerDeathEvent;
+import org.bukkit.event.player.PlayerJoinEvent;
 import org.bukkit.plugin.RegisteredServiceProvider;
 import org.bukkit.plugin.java.JavaPlugin;
 import com.earth2me.essentials.Essentials;
@@ -33,6 +36,8 @@ public class TsubusabaUtils extends JavaPlugin implements Listener {
     private InvincibilityManager invincibilityManager;
     private GriefPreventionMenuManager griefPreventionMenuManager;
     private AdminSellManager adminSellManager;
+    private static TsubusabaUtils instance;
+    private SidebarManager sidebarManager;
 
     @Override
     public void onEnable() {
@@ -62,10 +67,11 @@ public class TsubusabaUtils extends JavaPlugin implements Listener {
             getServer().getPluginManager().disablePlugin(this);
             return;
         }
-
         saveDefaultConfig();
         reloadConfig();
 
+        instance = this;
+        sidebarManager = new SidebarManager(this);
         this.homeManager = new HomeManager(essentials, this, luckPerms);
         this.homeGUIManager = new HomeGUIManager(this, homeManager);
         this.guiManager = new GUIManager(this);
@@ -88,10 +94,27 @@ public class TsubusabaUtils extends JavaPlugin implements Listener {
         getServer().getPluginManager().registerEvents(invincibilityManager, this);
         getServer().getPluginManager().registerEvents(griefPreventionMenuManager, this);
         getServer().getPluginManager().registerEvents(adminSellManager, this);
-        getServer().getPluginManager().registerEvents(new JobJoinListener(this), this);
-        getServer().getPluginManager().registerEvents(new JobLevelListener(this), this);
+        getServer().getPluginManager().registerEvents(new JobJoinListener(this, sidebarManager), this);
+        getServer().getPluginManager().registerEvents(new JobLevelListener(this, sidebarManager), this);
+        getServer().getPluginManager().registerEvents(new JobLeaveListener(this, sidebarManager), this);
+
 
         getLogger().info("TsubusabaUtilsが有効になりました。");
+
+        getServer().getPluginManager().registerEvents(new Listener() {
+            @EventHandler
+            public void onPlayerJoin(PlayerJoinEvent event) {
+                sidebarManager.updateJobs(event.getPlayer());
+                sidebarManager.updateBalance(event.getPlayer());
+            }
+        }, this);
+
+
+        Bukkit.getScheduler().runTaskTimer(this, () -> {
+            for (Player player : Bukkit.getOnlinePlayers()) {
+                sidebarManager.updateBalance(player);
+            }
+        }, 0L, 20L);
     }
 
     @Override
@@ -159,5 +182,12 @@ public class TsubusabaUtils extends JavaPlugin implements Listener {
 
     public AdminSellManager getAdminSellManager() {
         return adminSellManager;
+    }
+    public static TsubusabaUtils getInstance() {   // ← 追加
+        return instance;
+    }
+
+    public SidebarManager getSidebarManager() {    // ← 追加
+        return sidebarManager;
     }
 }

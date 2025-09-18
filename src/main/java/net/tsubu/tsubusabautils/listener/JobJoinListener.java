@@ -1,6 +1,7 @@
 package net.tsubu.tsubusabautils.listener;
 
 import net.tsubu.tsubusabautils.TsubusabaUtils;
+import net.tsubu.tsubusabautils.manager.SidebarManager;
 import org.bukkit.advancement.Advancement;
 import org.bukkit.Bukkit;
 import org.bukkit.NamespacedKey;
@@ -16,20 +17,23 @@ import com.gamingmesh.jobs.container.JobProgression;
 public class JobJoinListener implements Listener {
 
     private final TsubusabaUtils plugin;
+    private final SidebarManager sidebarManager;
 
-    public JobJoinListener(TsubusabaUtils plugin) {
+    public JobJoinListener(TsubusabaUtils plugin, SidebarManager sidebarManager) {
         this.plugin = plugin;
+        this.sidebarManager = sidebarManager;
     }
 
     @EventHandler
     public void onJobJoin(JobsJoinEvent event) {
         Player player = event.getPlayer().getPlayer();
         if (player == null) return;
-        String jobName = event.getJob().getName();
+        // 進捗処理は1tick遅延で実行
+        String jobName = event.getJob().getDisplayName();
 
+        // 進捗処理（既存コード）
         Bukkit.getScheduler().runTaskLater(plugin, () -> {
-            processJobCountAdvancements(player);          // any-job-join.first, second, third
-            processSpecificJobAdvancements(player, jobName); // specific-job-join.Miner など
+            sidebarManager.updateJobs(player); // サイドバー更新
         }, 1L);
     }
 

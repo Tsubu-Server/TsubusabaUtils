@@ -520,7 +520,7 @@ public class GriefPreventionMenuManager implements Listener {
 
                 List<Component> lore = new ArrayList<>();
                 if (economy != null) {
-                    lore.add(Component.text("所持金: " + economy.format(economy.getBalance(player)))
+                    lore.add(Component.text("所持金: " + df.format(economy.getBalance(player)) + "$")
                             .color(NamedTextColor.GREEN)
                             .decoration(TextDecoration.ITALIC, false));
                 }

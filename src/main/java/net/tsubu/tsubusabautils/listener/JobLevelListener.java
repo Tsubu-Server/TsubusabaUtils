@@ -1,6 +1,7 @@
 package net.tsubu.tsubusabautils.listener;
 
 import net.tsubu.tsubusabautils.TsubusabaUtils;
+import net.tsubu.tsubusabautils.manager.SidebarManager;
 import org.bukkit.advancement.Advancement;
 import org.bukkit.Bukkit;
 import org.bukkit.NamespacedKey;
@@ -27,9 +28,11 @@ public class JobLevelListener implements Listener {
 
     private final TsubusabaUtils plugin;
     private final LuckPerms luckPerms;
+    private final SidebarManager sidebarManager;
 
-    public JobLevelListener(TsubusabaUtils plugin) {
+    public JobLevelListener(TsubusabaUtils plugin, SidebarManager sidebarManager) {
         this.plugin = plugin;
+        this.sidebarManager = sidebarManager;
         this.luckPerms = plugin.getServer().getServicesManager().load(LuckPerms.class);
     }
 
@@ -48,6 +51,8 @@ public class JobLevelListener implements Listener {
         processJobSpecificAdvancements(player, jobName, newLevel);
         processOrAdvancements(player);
         processCombinationAdvancements(player);
+
+        sidebarManager.updateJobs(player);
     }
 
     /**
@@ -125,7 +130,6 @@ public class JobLevelListener implements Listener {
                 Object levelObj = condition.get("level");
 
                 if (requiredJob == null) requiredJob = "any";
-
                 if (levelObj == null) continue;
 
                 int requiredLevel;
