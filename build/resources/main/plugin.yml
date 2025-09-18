@@ -13,7 +13,7 @@ commands:
   returndeath:
     description: 死亡地点に戻る
     usage: /returndeath
-    aliases: [rd]
+    aliases: [rd, back]
   thome:
     description: Open home GUI
     usage: /thome

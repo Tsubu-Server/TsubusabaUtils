@@ -28,12 +28,13 @@ public class JobJoinListener implements Listener {
     public void onJobJoin(JobsJoinEvent event) {
         Player player = event.getPlayer().getPlayer();
         if (player == null) return;
-        // 進捗処理は1tick遅延で実行
-        String jobName = event.getJob().getDisplayName();
+        String jobName = event.getJob().getName();
+        String jobDisplayName = event.getJob().getDisplayName();
 
-        // 進捗処理（既存コード）
         Bukkit.getScheduler().runTaskLater(plugin, () -> {
-            sidebarManager.updateJobs(player); // サイドバー更新
+            processJobCountAdvancements(player);          // any-job-join.first, second, third
+            processSpecificJobAdvancements(player, jobName, jobDisplayName); // specific-job-join.Miner など
+            sidebarManager.updateJobs(player);
         }, 1L);
     }
 
@@ -67,7 +68,7 @@ public class JobJoinListener implements Listener {
     /**
      * 特定職業による進捗を処理
      */
-    private void processSpecificJobAdvancements(Player player, String jobName) {
+    private void processSpecificJobAdvancements(Player player, String jobName, String jobDisplayName) {
         String advancementId = plugin.getConfig().getString("specific-job-join." + jobName);
 
         if (advancementId != null && !advancementId.isEmpty()) {

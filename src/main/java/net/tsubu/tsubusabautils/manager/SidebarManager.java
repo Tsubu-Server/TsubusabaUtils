@@ -81,12 +81,12 @@ public class SidebarManager {
         player.setScoreboard(board);
     }
 
-    public void removeJob(Player player, String jobName) {
+    public void removeJob(Player player, String jobDisplayName) {
         Scoreboard board = getBoard(player);
         Objective obj = getObjective(board);
 
         for (String entry : board.getEntries()) {
-            if (entry.contains(jobName)) {
+            if (entry.contains(jobDisplayName)) {
                 board.resetScores(entry);
             }
         }
