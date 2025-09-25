@@ -39,7 +39,7 @@ public class HomeGUIManager implements Listener {
 
         int slot = 0;
         for (String homeName : homes) {
-            if (slot >= 18) break; // 最大18個のホーム（戻る・閉じるボタン用にスペースを確保）
+            if (slot >= 18) break;
 
             Location homeLoc = homeManager.getHome(player, homeName);
             if (homeLoc != null) {
@@ -52,16 +52,18 @@ public class HomeGUIManager implements Listener {
                             .decoration(TextDecoration.ITALIC, false));
 
                     List<Component> lore = new ArrayList<>();
-                    lore.add(Component.text("クリック/タップでテレポート")
+                    lore.add(Component.text("ワールド: " + worldName)
                             .color(NamedTextColor.GREEN)
                             .decoration(TextDecoration.ITALIC, false));
-                    lore.add(Component.text("ワールド: " + worldName)
-                            .color(NamedTextColor.GRAY)
-                            .decoration(TextDecoration.ITALIC, false));
                     lore.add(Component.text("座標: X:" + (int)homeLoc.getX() + ", Y:" + (int)homeLoc.getY() + ", Z:" + (int)homeLoc.getZ())
-                            .color(NamedTextColor.GRAY)
+                            .color(NamedTextColor.GREEN)
                             .decoration(TextDecoration.ITALIC, false));
-
+                    lore.add(Component.text("クリック/タップでテレポート")
+                            .color(NamedTextColor.GOLD)
+                            .decoration(TextDecoration.ITALIC, false));
+                    lore.add(Component.text("Qキー/長押しでホーム削除")
+                            .color(NamedTextColor.RED)
+                            .decoration(TextDecoration.ITALIC, false));
                     meta.lore(lore);
                 });
 
@@ -70,7 +72,6 @@ public class HomeGUIManager implements Listener {
             }
         }
 
-        // ホーム上限購入ボタン
         ItemStack purchaseItem = new ItemStack(Material.EMERALD);
         purchaseItem.editMeta(meta -> {
             meta.displayName(Component.text("ホーム上限購入")
@@ -82,7 +83,7 @@ public class HomeGUIManager implements Listener {
                     .decoration(TextDecoration.ITALIC, false));
             meta.lore(lore);
         });
-        inv.setItem(18, purchaseItem);
+        inv.setItem(22, purchaseItem);
 
         // 閉じるボタン
         ItemStack closeItem = new ItemStack(Material.BARRIER);
@@ -92,11 +93,24 @@ public class HomeGUIManager implements Listener {
                     .decoration(TextDecoration.ITALIC, false));
             List<Component> lore = new ArrayList<>();
             lore.add(Component.text("メニューを閉じます")
-                    .color(NamedTextColor.GRAY)
+                    .color(NamedTextColor.YELLOW)
                     .decoration(TextDecoration.ITALIC, false));
             meta.lore(lore);
         });
         inv.setItem(26, closeItem);
+
+        ItemStack backItem = new ItemStack(Material.SPECTRAL_ARROW);
+        backItem.editMeta(meta -> {
+            meta.displayName(Component.text("メインメニューに戻る")
+                    .color(NamedTextColor.GOLD)
+                    .decoration(TextDecoration.ITALIC, false));
+            List<Component> lore = new ArrayList<>();
+            lore.add(Component.text("メインメニューに戻ります")
+                    .color(NamedTextColor.YELLOW)
+                    .decoration(TextDecoration.ITALIC, false));
+            meta.lore(lore);
+        });
+        inv.setItem(18, backItem);
 
         player.openInventory(inv);
     }
@@ -114,7 +128,7 @@ public class HomeGUIManager implements Listener {
                     .color(NamedTextColor.YELLOW)
                     .decoration(TextDecoration.ITALIC, false));
             List<Component> lore = new ArrayList<>();
-            lore.add(Component.text("価格: " + price1 + "$")
+            lore.add(Component.text("価格: " + price1 + "D")
                     .color(NamedTextColor.GOLD)
                     .decoration(TextDecoration.ITALIC, false));
             lore.add(Component.text("クリック/タップで購入")
@@ -132,7 +146,7 @@ public class HomeGUIManager implements Listener {
                     .color(NamedTextColor.YELLOW)
                     .decoration(TextDecoration.ITALIC, false));
             List<Component> lore = new ArrayList<>();
-            lore.add(Component.text("価格: " + price2 + "$")
+            lore.add(Component.text("価格: " + price2 + "D")
                     .color(NamedTextColor.GOLD)
                     .decoration(TextDecoration.ITALIC, false));
             lore.add(Component.text("クリック/タップで購入")
@@ -142,7 +156,6 @@ public class HomeGUIManager implements Listener {
         });
         inv.setItem(15, upgrade2);
 
-        // 戻るボタン
         ItemStack backButton = new ItemStack(Material.ARROW);
         backButton.editMeta(meta -> {
             meta.displayName(Component.text("戻る")
@@ -156,7 +169,6 @@ public class HomeGUIManager implements Listener {
         });
         inv.setItem(18, backButton);
 
-        // 閉じるボタン
         ItemStack closeButton = new ItemStack(Material.BARRIER);
         closeButton.editMeta(meta -> {
             meta.displayName(Component.text("閉じる")
@@ -194,51 +206,64 @@ public class HomeGUIManager implements Listener {
 
         String titleText = PlainTextComponentSerializer.plainText().serialize(titleComponent);
 
-        if (titleText.equals("ホーム一覧") || titleText.equals("ホーム上限購入")) {
-            event.setCancelled(true);
-        } else {
-            return;
-        }
+        if (!titleText.equals("ホーム一覧") && !titleText.equals("ホーム上限購入")) return;
+        event.setCancelled(true);
 
         ItemStack clicked = event.getCurrentItem();
         String itemName = PlainTextComponentSerializer.plainText().serialize(clicked.getItemMeta().displayName());
 
         if (titleText.equals("ホーム一覧")) {
-            if (clicked.getType() == Material.BOOK) {
-                teleportToHome(player, itemName);
-                player.closeInventory();
-                player.playSound(player.getLocation(), Sound.ENTITY_ENDERMAN_TELEPORT, 1.0f, 1.0f);
-            } else if (clicked.getType() == Material.EMERALD) {
-                openPurchaseGUI(player);
-                player.playSound(player.getLocation(), Sound.UI_BUTTON_CLICK, 1.0f, 1.0f);
-            } else if (clicked.getType() == Material.BARRIER && itemName.equals("閉じる")) {
-                player.closeInventory();
-                player.playSound(player.getLocation(), Sound.UI_BUTTON_CLICK, 1.0f, 1.0f);
+            switch (event.getAction()) {
+                case PICKUP_ALL, PICKUP_HALF, PICKUP_ONE, PICKUP_SOME, PLACE_ALL, PLACE_SOME, PLACE_ONE -> {
+                    if (clicked.getType() == Material.BOOK) {
+                        teleportToHome(player, itemName);
+                        player.closeInventory();
+                        player.playSound(player.getLocation(), Sound.ENTITY_ENDERMAN_TELEPORT, 1.0f, 1.0f);
+                    } else if (clicked.getType() == Material.EMERALD) {
+                        openPurchaseGUI(player);
+                        player.playSound(player.getLocation(), Sound.UI_BUTTON_CLICK, 1.0f, 1.0f);
+                    } else if (clicked.getType() == Material.BARRIER && itemName.equals("閉じる")) {
+                        player.closeInventory();
+                        player.playSound(player.getLocation(), Sound.UI_BUTTON_CLICK, 1.0f, 1.0f);
+                    } else if (clicked.getType() == Material.SPECTRAL_ARROW && itemName.equals("メインメニューに戻る")) {
+                        player.closeInventory();
+                        player.playSound(player.getLocation(), Sound.UI_BUTTON_CLICK, 1.0f, 1.0f);
+                        player.performCommand("menu");
+                    }
+                }
+                case DROP_ONE_SLOT, DROP_ALL_SLOT -> {
+                    if (clicked.getType() == Material.BOOK) {
+                        boolean deleted = homeManager.deleteHome(player, itemName);
+                        if (deleted) {
+                            player.playSound(player.getLocation(), Sound.ENTITY_ITEM_BREAK, 1.0f, 1.0f);
+                            openHomeGUI(player);
+                        }
+                    }
+                }
             }
-        } else if (titleText.equals("ホーム上限購入")) {
-            if (clicked.getType() == Material.DIAMOND_HOE) {
-                boolean success = homeManager.purchaseHomeUpgrade(player, "home-upgrade-1");
-                if (success) {
-                    player.playSound(player.getLocation(), Sound.ENTITY_PLAYER_LEVELUP, 1.0f, 1.5f);
-                } else {
-                    player.playSound(player.getLocation(), Sound.ENTITY_VILLAGER_NO, 1.0f, 1.0f);
+        }
+
+        else if (titleText.equals("ホーム上限購入")) {
+            switch (event.getAction()) {
+                case PICKUP_ALL, PICKUP_HALF, PICKUP_ONE, PICKUP_SOME, PLACE_ALL, PLACE_SOME, PLACE_ONE -> {
+                    if (clicked.getType() == Material.DIAMOND_HOE) {
+                        boolean success = homeManager.purchaseHomeUpgrade(player, "home-upgrade-1");
+                        player.playSound(player.getLocation(), success ? Sound.ENTITY_PLAYER_LEVELUP : Sound.ENTITY_VILLAGER_NO, 1.0f, success ? 1.5f : 1.0f);
+                        player.closeInventory();
+                    } else if (clicked.getType() == Material.NETHERITE_HOE) {
+                        boolean success = homeManager.purchaseHomeUpgrade(player, "home-upgrade-2");
+                        player.playSound(player.getLocation(), success ? Sound.ENTITY_PLAYER_LEVELUP : Sound.ENTITY_VILLAGER_NO, 1.0f, success ? 1.5f : 1.0f);
+                        player.closeInventory();
+                    } else if (clicked.getType() == Material.ARROW && itemName.equals("戻る")) {
+                        openHomeGUI(player);
+                        player.playSound(player.getLocation(), Sound.UI_BUTTON_CLICK, 1.0f, 1.0f);
+                    } else if (clicked.getType() == Material.BARRIER && itemName.equals("閉じる")) {
+                        player.closeInventory();
+                        player.playSound(player.getLocation(), Sound.UI_BUTTON_CLICK, 1.0f, 1.0f);
+                    }
                 }
-                player.closeInventory();
-            } else if (clicked.getType() == Material.NETHERITE_HOE) {
-                boolean success = homeManager.purchaseHomeUpgrade(player, "home-upgrade-2");
-                if (success) {
-                    player.playSound(player.getLocation(), Sound.ENTITY_PLAYER_LEVELUP, 1.0f, 1.5f);
-                } else {
-                    player.playSound(player.getLocation(), Sound.ENTITY_VILLAGER_NO, 1.0f, 1.0f);
-                }
-                player.closeInventory();
-            } else if (clicked.getType() == Material.ARROW && itemName.equals("戻る")) {
-                openHomeGUI(player);
-                player.playSound(player.getLocation(), Sound.UI_BUTTON_CLICK, 1.0f, 1.0f);
-            } else if (clicked.getType() == Material.BARRIER && itemName.equals("閉じる")) {
-                player.closeInventory();
-                player.playSound(player.getLocation(), Sound.UI_BUTTON_CLICK, 1.0f, 1.0f);
             }
         }
     }
+
 }

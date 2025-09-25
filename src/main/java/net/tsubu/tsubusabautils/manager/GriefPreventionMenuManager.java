@@ -53,33 +53,31 @@ public class GriefPreventionMenuManager implements Listener {
     private final double sellRate;
 
     private final List<FlagDisplay> flagsToShow = List.of(
-            new FlagDisplay("noexplosiondamage", "爆発ダメージ防止", Material.TNT, 10,
-                    List.of(Component.text("爆発によるダメージを防ぎます").color(NamedTextColor.YELLOW).decoration(TextDecoration.ITALIC, false))),
-            new FlagDisplay("allowpvp", "PvP", Material.IRON_SWORD, 11,
+            new FlagDisplay("noexplosiondamage", "ツタの成長防止", Material.VINE, 24,
+                    List.of(Component.text("ツタ系の成長を防ぎます").color(NamedTextColor.YELLOW).decoration(TextDecoration.ITALIC, false))),
+            new FlagDisplay("allowpvp", "PvP", Material.IRON_SWORD, 10,
                     List.of(Component.text("PvPの許可を設定できます").color(NamedTextColor.YELLOW).decoration(TextDecoration.ITALIC, false))),
-            new FlagDisplay("nomobspawns", "モブのスポーン防止", Material.COW_SPAWN_EGG, 12,
+            new FlagDisplay("nomobspawns", "モブのスポーン防止", Material.COW_SPAWN_EGG, 11,
                     List.of(Component.text("土地内でのモブのスポーンを防ぎます").color(NamedTextColor.YELLOW).decoration(TextDecoration.ITALIC, false))),
-            new FlagDisplay("nomonsterspawns", "敵モブのスポーン防止", Material.ZOMBIE_SPAWN_EGG, 13,
+            new FlagDisplay("nomonsterspawns", "敵モブのスポーン防止", Material.ZOMBIE_SPAWN_EGG, 12,
                     List.of(Component.text("土地内での敵モブのスポーンを防ぎます※外で湧いた敵モブは侵入できます").color(NamedTextColor.YELLOW).decoration(TextDecoration.ITALIC, false))),
-            new FlagDisplay("nomonsters", "敵モブ防止", Material.BARRIER, 14,
+            new FlagDisplay("nomonsters", "敵モブ防止", Material.BARRIER, 13,
                     List.of(Component.text("土地内での敵モブのスポーンと侵入を防ぎます").color(NamedTextColor.YELLOW).decoration(TextDecoration.ITALIC, false))),
-            new FlagDisplay("nocroptrampling", "畑踏みつけ防止", Material.GOLDEN_HOE, 15,
+            new FlagDisplay("nocroptrampling", "畑荒らし防止", Material.GOLDEN_HOE, 20,
                     List.of(Component.text("農作物が踏み荒らされるのを防ぎます").color(NamedTextColor.YELLOW).decoration(TextDecoration.ITALIC, false))),
-            new FlagDisplay("allowwitherdamage", "ウィザーダメージ許可", Material.WITHER_ROSE, 15,
+            new FlagDisplay("allowwitherdamage", "ウィザーダメージ許可", Material.WITHER_ROSE, 14,
                     List.of(Component.text("ウィザーによるダメージの許可を設定できます").color(NamedTextColor.YELLOW).decoration(TextDecoration.ITALIC, false))),
-            new FlagDisplay("nofiredamage", "火ダメージ防止", Material.FLINT_AND_STEEL, 16,
-                    List.of(Component.text("火によるダメージを防ぎます").color(NamedTextColor.YELLOW).decoration(TextDecoration.ITALIC, false))),
-            new FlagDisplay("nofirespread", "火の延焼防止", Material.LAVA_BUCKET, 19,
+            new FlagDisplay("nofiredamage", "火のブロックダメージ防止", Material.FLINT_AND_STEEL, 15,
+                    List.of(Component.text("火によるブロックへのダメージを防ぎます").color(NamedTextColor.YELLOW).decoration(TextDecoration.ITALIC, false))),
+            new FlagDisplay("nofirespread", "火の延焼防止", Material.LAVA_BUCKET, 16,
                     List.of(Component.text("火の延焼を防ぎます").color(NamedTextColor.YELLOW).decoration(TextDecoration.ITALIC, false))),
-            new FlagDisplay("nofalldamage", "落下ダメージ防止", Material.DIAMOND_BOOTS, 20,
+            new FlagDisplay("nofalldamage", "落下ダメージ防止", Material.DIAMOND_BOOTS, 19,
                     List.of(Component.text("落下ダメージを防ぎます").color(NamedTextColor.YELLOW).decoration(TextDecoration.ITALIC, false))),
-            new FlagDisplay("nofluidflow", "流体の流れ防止", Material.WATER_BUCKET, 21,
-                    List.of(Component.text("流体の流れを防ぎます").color(NamedTextColor.YELLOW).decoration(TextDecoration.ITALIC, false))),
-            new FlagDisplay("nogrowth", "作物の成長防止", Material.WHEAT_SEEDS, 22,
-                    List.of(Component.text("作物の成長を防ぎます").color(NamedTextColor.YELLOW).decoration(TextDecoration.ITALIC, false))),
-            new FlagDisplay("noiceform", "氷の生成防止", Material.ICE, 23,
+            new FlagDisplay("nofluidflow", "液体の流れ防止", Material.WATER_BUCKET, 21,
+                    List.of(Component.text("液体（水など）が流れるのを防ぎます").color(NamedTextColor.YELLOW).decoration(TextDecoration.ITALIC, false))),
+            new FlagDisplay("noiceform", "氷の生成防止", Material.ICE, 22,
                     List.of(Component.text("氷の生成を防ぎます").color(NamedTextColor.YELLOW).decoration(TextDecoration.ITALIC, false))),
-            new FlagDisplay("noleafdecay", "葉の自然消滅防止", Material.OAK_LEAVES, 24,
+            new FlagDisplay("noleafdecay", "葉の自然消滅防止", Material.OAK_LEAVES, 23,
                     List.of(Component.text("葉の自然消滅を防ぎます").color(NamedTextColor.YELLOW).decoration(TextDecoration.ITALIC, false))),
             new FlagDisplay("nosnowform", "雪の生成防止", Material.SNOW_BLOCK, 25,
                     List.of(Component.text("雪が降らなくなります").color(NamedTextColor.YELLOW).decoration(TextDecoration.ITALIC, false)))
@@ -137,6 +135,8 @@ public class GriefPreventionMenuManager implements Listener {
                 Arrays.asList("現在いる土地を放棄します")));
         inv.setItem(32, createMenuItem(Material.IRON_BLOCK, "保護ブロック数売却",
                 Arrays.asList("保護ブロックをお金に交換します")));
+        inv.setItem(36, createMenuItem(Material.SPECTRAL_ARROW, "メインメニューに戻る",
+                Arrays.asList("メインメニューに戻ります")));
         inv.setItem(40, createMenuItem(Material.BARRIER, "閉じる",
                 Arrays.asList("メニューを閉じます")));
 
@@ -162,7 +162,7 @@ public class GriefPreventionMenuManager implements Listener {
             gui.setItem(i, createPlayerHeadItem(target));
         }
 
-        gui.setItem(45, createMenuItem(Material.ARROW, "戻る", Arrays.asList("メインメニューに戻る")));
+        gui.setItem(45, createMenuItem(Material.ARROW, "戻る", Arrays.asList("土地メニューに戻る")));
         gui.setItem(53, createMenuItem(Material.BARRIER, "閉じる", Arrays.asList("メニューを閉じます")));
 
         player.openInventory(gui);
@@ -231,7 +231,7 @@ public class GriefPreventionMenuManager implements Listener {
                 .decoration(TextDecoration.ITALIC, false));
         banItem.setItemMeta(banMeta);
         menu.setItem(26, banItem);
-        menu.setItem(18, createMenuItem(Material.ARROW, "戻る", Arrays.asList("メインメニューに戻る")));
+        menu.setItem(18, createMenuItem(Material.ARROW, "戻る", Arrays.asList("土地メニューに戻る")));
         menu.setItem(22, createMenuItem(Material.BARRIER, "閉じる", Arrays.asList("メニューを閉じます")));
 
         player.openInventory(menu);
@@ -271,7 +271,7 @@ public class GriefPreventionMenuManager implements Listener {
         gui.setItem(4, landItem); // 真ん中に設置
 
         gui.setItem(11, createMenuItem(Material.RED_CONCRETE, "はい", Arrays.asList("この土地を放棄します")));
-        gui.setItem(15, createMenuItem(Material.GREEN_CONCRETE, "いいえ", Arrays.asList("メインメニューに戻る")));
+        gui.setItem(15, createMenuItem(Material.GREEN_CONCRETE, "いいえ", Arrays.asList("土地メニューに戻る")));
         gui.setItem(22, createMenuItem(Material.BARRIER, "閉じる", Arrays.asList("メニューを閉じます")));
 
         player.openInventory(gui);
@@ -300,7 +300,7 @@ public class GriefPreventionMenuManager implements Listener {
 
         gui.setItem(16, createMenuItemWithLore(Material.EMERALD_BLOCK, "購入確定",
                 Arrays.asList("クリック/タップで購入")));
-        gui.setItem(27, createMenuItem(Material.ARROW, "戻る", Arrays.asList("メインメニューに戻る")));
+        gui.setItem(27, createMenuItem(Material.ARROW, "戻る", Arrays.asList("土地メニューに戻る")));
         gui.setItem(35, createMenuItem(Material.BARRIER, "閉じる",
                 Arrays.asList("メニューを閉じます")));
 
@@ -332,7 +332,7 @@ public class GriefPreventionMenuManager implements Listener {
         gui.setItem(23, createButton(Material.RED_STAINED_GLASS_PANE, "-10000"));
         gui.setItem(16, createMenuItemWithLore(Material.GOLD_BLOCK, "売却確定",
                 Arrays.asList("クリック/タップで売却")));
-        gui.setItem(27, createMenuItem(Material.ARROW, "戻る", Arrays.asList("メインメニューに戻る")));
+        gui.setItem(27, createMenuItem(Material.ARROW, "戻る", Arrays.asList("土地メニューに戻る")));
         gui.setItem(35, createMenuItem(Material.BARRIER, "閉じる", Arrays.asList("メニューを閉じます")));
 
         player.openInventory(gui);
@@ -345,7 +345,7 @@ public class GriefPreventionMenuManager implements Listener {
             playerData.setAccruedClaimBlocks(playerData.getAccruedClaimBlocks() + amount);
             griefPrevention.dataStore.savePlayerData(player.getUniqueId(), playerData);
             player.sendMessage(Component.text("保護ブロックを " + df.format(amount) + " 個購入しました！").color(NamedTextColor.GREEN));
-            player.sendMessage(Component.text("現在の所持金: " + df.format(economy.getBalance(player)) + "$").color(NamedTextColor.GREEN));
+            player.sendMessage(Component.text("現在の所持金: " + df.format(economy.getBalance(player)) + "D").color(NamedTextColor.GREEN));
             player.playSound(player.getLocation(), Sound.ENTITY_PLAYER_LEVELUP, 1.0f, 1.5f);
             player.closeInventory();
         } else {
@@ -378,7 +378,7 @@ public class GriefPreventionMenuManager implements Listener {
         economy.depositPlayer(player, price);
 
         player.sendMessage(Component.text(amount + "個の保護ブロックを売却しました！").color(NamedTextColor.GREEN));
-        player.sendMessage(Component.text("現在の所持金: " + df.format(economy.getBalance(player)) + "$").color(NamedTextColor.GREEN));
+        player.sendMessage(Component.text("現在の所持金: " + df.format(economy.getBalance(player)) + "D").color(NamedTextColor.GREEN));
         player.playSound(player.getLocation(), Sound.ENTITY_PLAYER_LEVELUP, 1.0f, 1.5f);
         player.closeInventory();
     }
@@ -454,7 +454,7 @@ public class GriefPreventionMenuManager implements Listener {
                     .decoration(TextDecoration.ITALIC, false));
 
             List<Component> lore = new ArrayList<>();
-            lore.add(Component.text("価格: " + df.format(sellPrice) + "$")
+            lore.add(Component.text("価格: " + df.format(sellPrice) + "D")
                     .color(NamedTextColor.GREEN)
                     .decoration(TextDecoration.ITALIC, false));
             lore.add(Component.text("現在の所持ブロック数: " + remainingBlocks + "個")
@@ -479,10 +479,10 @@ public class GriefPreventionMenuManager implements Listener {
                     .decoration(TextDecoration.ITALIC, false));
 
             List<Component> lore = new ArrayList<>();
-            lore.add(Component.text("価格: " + df.format(price) + "$")
+            lore.add(Component.text("価格: " + df.format(price) + "D")
                     .color(NamedTextColor.GREEN)
                     .decoration(TextDecoration.ITALIC, false));
-            lore.add(Component.text("現在の所持金: " + df.format(economy.getBalance(player)) + "$")
+            lore.add(Component.text("現在の所持金: " + df.format(economy.getBalance(player)) + "D")
                     .color(NamedTextColor.GREEN)
                     .decoration(TextDecoration.ITALIC, false));
             if (economy.getBalance(player) < price) {
@@ -520,7 +520,7 @@ public class GriefPreventionMenuManager implements Listener {
 
                 List<Component> lore = new ArrayList<>();
                 if (economy != null) {
-                    lore.add(Component.text("所持金: " + df.format(economy.getBalance(player)) + "$")
+                    lore.add(Component.text("所持金: " + df.format(economy.getBalance(player)) + "D")
                             .color(NamedTextColor.GREEN)
                             .decoration(TextDecoration.ITALIC, false));
                 }
@@ -571,7 +571,7 @@ public class GriefPreventionMenuManager implements Listener {
             gui.setItem(i - start, createClaimItem(claims.get(i)));
         }
 
-        gui.setItem(45, createMenuItem(Material.ARROW, "戻る", Arrays.asList("メインメニューに戻る")));
+        gui.setItem(45, createMenuItem(Material.ARROW, "戻る", Arrays.asList("土地メニューに戻る")));
         if (page > 0) {
             gui.setItem(48, createMenuItem(Material.ORANGE_DYE, "◀ 前のページ", Arrays.asList("前のページへ")));
         }
@@ -697,7 +697,7 @@ public class GriefPreventionMenuManager implements Listener {
             gui.setItem(fd.slot, item);
         }
 
-        gui.setItem(27, createMenuItem(Material.ARROW, "戻る", List.of("メインメニューに戻る")));
+        gui.setItem(27, createMenuItem(Material.ARROW, "戻る", List.of("土地メニューに戻る")));
         gui.setItem(35, createMenuItem(Material.BARRIER, "閉じる", List.of("メニューを閉じます")));
 
         player.openInventory(gui);
@@ -843,6 +843,10 @@ public class GriefPreventionMenuManager implements Listener {
                 openBlockSellMenu(player, 0);
             }
             case "閉じる" -> player.closeInventory();
+            case "メインメニューに戻る" -> {
+                player.closeInventory();
+                player.performCommand("menu");
+            }
         }
     }
 

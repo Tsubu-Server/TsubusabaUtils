@@ -170,7 +170,7 @@ public class AdminSellManager implements Listener {
                         .decoration(TextDecoration.BOLD, true)
                         .decoration(TextDecoration.ITALIC, false));
                 List<Component> lore = new ArrayList<>();
-                lore.add(Component.text("買取価格: " + df.format(price) + "$ / 個")
+                lore.add(Component.text("買取価格: " + df.format(price) + "D / 個")
                         .color(NamedTextColor.GREEN)
                         .decoration(TextDecoration.ITALIC, false));
                 lore.add(Component.text(""));
@@ -312,7 +312,7 @@ public class AdminSellManager implements Listener {
                         .decoration(TextDecoration.ITALIC, false)
                 );
             }
-            lore.add(Component.text("合計: $" + df.format(total))
+            lore.add(Component.text("合計: D" + df.format(total))
                     .color(NamedTextColor.GREEN)
                     .decoration(TextDecoration.ITALIC, false));
             meta.lore(lore);
@@ -377,7 +377,7 @@ public class AdminSellManager implements Listener {
 
         EconomyResponse resp = economy.depositPlayer(player, total);
         if (resp.transactionSuccess()) {
-            player.sendMessage(Component.text("合計 $" + df.format(total) + " を受け取りました").color(NamedTextColor.GREEN));
+            player.sendMessage(Component.text("合計 D" + df.format(total) + " を受け取りました").color(NamedTextColor.GREEN));
             if (hadInvalidItems) {
                 player.sendMessage(Component.text("売却不可アイテムは返品しました").color(NamedTextColor.YELLOW));
             }

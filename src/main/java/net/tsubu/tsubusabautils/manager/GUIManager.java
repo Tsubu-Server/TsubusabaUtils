@@ -3,6 +3,7 @@ package net.tsubu.tsubusabautils.manager;
 import net.tsubu.tsubusabautils.TsubusabaUtils;
 import org.bukkit.Bukkit;
 import org.bukkit.Material;
+import org.bukkit.Sound;
 import org.bukkit.entity.Player;
 import org.bukkit.event.EventHandler;
 import org.bukkit.event.Listener;
@@ -59,17 +60,16 @@ public class GUIManager implements Listener {
         }
 
         if (page > 0) {
-            gui.setItem(45, createNavigationItem(Material.ARROW, "前のページ", NamedTextColor.YELLOW));
+            gui.setItem(48, createNavigationItem(Material.ARROW, "前のページ", NamedTextColor.YELLOW));
         }
-
         if (page < totalPages - 1) {
-            gui.setItem(53, createNavigationItem(Material.ARROW, "次のページ", NamedTextColor.YELLOW));
+            gui.setItem(50, createNavigationItem(Material.ARROW, "次のページ", NamedTextColor.YELLOW));
         }
-
-        gui.setItem(49, createNavigationItem(Material.BARRIER, "閉じる", NamedTextColor.RED));
+        gui.setItem(53, createNavigationItem(Material.BARRIER, "閉じる", NamedTextColor.RED));
+        gui.setItem(45, createNavigationItem(Material.SPECTRAL_ARROW, "メインメニューに戻る", NamedTextColor.GOLD));
 
         ItemStack playerSelfHead = createPlayerSelfHead(player);
-        gui.setItem(48, playerSelfHead);
+        gui.setItem(49, playerSelfHead);
 
         player.openInventory(gui);
     }
@@ -115,7 +115,7 @@ public class GUIManager implements Listener {
         }
 
         List<Component> lore = Arrays.asList(
-                Component.text("所持金: " + balance + "$")
+                Component.text("所持金: " + balance + "D")
                         .color(NamedTextColor.YELLOW)
                         .decorate(TextDecoration.BOLD)
                         .decoration(TextDecoration.ITALIC, false)
@@ -170,14 +170,21 @@ public class GUIManager implements Listener {
 
             int slot = event.getSlot();
 
-            if (slot == 45 && itemName.contains("前のページ")) {
+            if (slot == 48 && itemName.contains("前のページ")) {
                 int currentPage = playerPages.getOrDefault(player.getUniqueId(), 0);
                 if (currentPage > 0) openGUI(player, currentPage - 1);
-            } else if (slot == 53 && itemName.contains("次のページ")) {
+                player.playSound(player.getLocation(), Sound.UI_BUTTON_CLICK, 1.0f, 1.0f);
+            } else if (slot == 50 && itemName.contains("次のページ")) {
                 int currentPage = playerPages.getOrDefault(player.getUniqueId(), 0);
                 openGUI(player, currentPage + 1);
-            } else if (slot == 49 && itemName.contains("閉じる")) {
+                player.playSound(player.getLocation(), Sound.UI_BUTTON_CLICK, 1.0f, 1.0f);
+            } else if (slot == 53 && itemName.contains("閉じる")) {
                 player.closeInventory();
+                player.playSound(player.getLocation(), Sound.UI_BUTTON_CLICK, 1.0f, 1.0f);
+            } else if (slot == 45 && itemName.contains("メインメニューに戻る")) {
+                player.closeInventory();
+                player.playSound(player.getLocation(), Sound.UI_BUTTON_CLICK, 1.0f, 1.0f);
+                player.performCommand("menu");
             } else if (clickedItem.getType() == Material.PLAYER_HEAD) {
                 if (slot < 45) { // 他のプレイヤーの頭
                     if (meta instanceof SkullMeta skullMeta && skullMeta.getOwningPlayer() != null) {
@@ -193,7 +200,6 @@ public class GUIManager implements Listener {
                         }
                     }
                 }
-                // 自分の頭（スロット48）はクリックしても何もしない
             }
         }
     }

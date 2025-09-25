@@ -29,7 +29,7 @@ public class SidebarManager {
         if (plugin.getConfig().getBoolean("sidebar.show-money", true)) {
             double balanceValue = TsubusabaUtils.getEconomy().getBalance(player);
             balanceValue = Math.floor(balanceValue * 10) / 10.0;
-            String balanceStr = balanceValue + "$";
+            String balanceStr = balanceValue + "D";
 
             for (String entry : board.getEntries()) {
                 if (entry.contains("所持金:")) {

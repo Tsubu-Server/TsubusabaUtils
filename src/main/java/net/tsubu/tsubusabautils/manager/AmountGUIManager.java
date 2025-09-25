@@ -65,7 +65,7 @@ public class AmountGUIManager implements Listener {
     private ItemStack createDisplayItem(Player sender, Player target, double amount) {
         ItemStack item = new ItemStack(Material.PAPER);
         item.editMeta(meta -> {
-            meta.displayName(Component.text("金額: " + df.format(amount) + "$").color(NamedTextColor.GOLD).decoration(TextDecoration.ITALIC, false));
+            meta.displayName(Component.text("金額: " + df.format(amount) + "D").color(NamedTextColor.GOLD).decoration(TextDecoration.ITALIC, false));
 
             List<Component> lore = new ArrayList<>();
             lore.add(Component.text("送金先: " + target.getName()).color(NamedTextColor.AQUA).decoration(TextDecoration.ITALIC, false));
@@ -73,7 +73,7 @@ public class AmountGUIManager implements Listener {
             Economy eco = TsubusabaUtils.getEconomy();
             if (eco != null) {
                 double balance = eco.getBalance(sender);
-                lore.add(Component.text("残高: " + df.format(balance) + "$")
+                lore.add(Component.text("残高: " + df.format(balance) + "D")
                         .color(NamedTextColor.GREEN)
                         .decoration(TextDecoration.ITALIC, false));
 
@@ -129,7 +129,6 @@ public class AmountGUIManager implements Listener {
             return;
         }
 
-        // バリデーションチェック
         if (amount <= 0) {
             sender.sendMessage(Component.text("送金額は1円以上にしてください！").color(NamedTextColor.RED));
             sender.playSound(sender.getLocation(), Sound.ENTITY_VILLAGER_NO, 1.0f, 1.0f);
@@ -144,7 +143,6 @@ public class AmountGUIManager implements Listener {
             return;
         }
 
-        // 送金処理実行
         if (eco.withdrawPlayer(sender, amount).transactionSuccess()) {
             if (eco.depositPlayer(target, amount).transactionSuccess()) {
                 sender.sendMessage(Component.text(target.getName() + "に" + df.format(amount) + "$を送金しました！")
@@ -152,7 +150,7 @@ public class AmountGUIManager implements Listener {
                 target.sendMessage(Component.text(sender.getName() + "から" + df.format(amount) + "$を受け取りました！")
                         .color(NamedTextColor.GREEN));
 
-                sender.sendMessage(Component.text("現在の所持金: " + df.format(eco.getBalance(sender)) + "$")
+                sender.sendMessage(Component.text("現在の所持金: " + df.format(eco.getBalance(sender)) + "D")
                         .color(NamedTextColor.GREEN));
 
                 sender.playSound(sender.getLocation(), Sound.ENTITY_PLAYER_LEVELUP, 1.0f, 1.5f);
@@ -209,8 +207,7 @@ public class AmountGUIManager implements Listener {
             String displayName = PlainTextComponentSerializer.plainText()
                     .serialize(display.getItemMeta().displayName());
             try {
-                // "金額: " と "$" を除去して数値を抽出
-                String amountStr = displayName.replace("金額: ", "").replace("$", "").replace(",", "").trim();
+                String amountStr = displayName.replace("金額: ", "").replace("D", "").replace(",", "").trim();
                 amount = Double.parseDouble(amountStr);
             } catch (NumberFormatException e) {
                 amount = 0.0;
@@ -237,7 +234,6 @@ public class AmountGUIManager implements Listener {
 
                 player.playSound(player.getLocation(), Sound.UI_BUTTON_CLICK, 1.0f, 1.0f);
 
-                // ボタンのエフェクト
                 ItemMeta meta = clicked.getItemMeta();
                 meta.addEnchant(Enchantment.INFINITY, 1, true);
                 meta.addItemFlags(ItemFlag.HIDE_ENCHANTS);
@@ -249,7 +245,6 @@ public class AmountGUIManager implements Listener {
                     clicked.setItemMeta(newMeta);
                 }, 1L);
 
-                // 表示アイテムを更新
                 gui.setItem(25, createDisplayItem(player, target, amount));
             }
             case "戻る" -> {

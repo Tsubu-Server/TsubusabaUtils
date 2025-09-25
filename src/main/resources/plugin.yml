@@ -20,6 +20,10 @@ commands:
   gmenu:
     description: Open GPMenu GUI
     usage: /gmenu
+  rec:
+    description: Open Recipe GUI
+    usage: /rec
+
   adminsell:
     description: Open admin shop buyback GUI
     usage: /<command> [reload]
