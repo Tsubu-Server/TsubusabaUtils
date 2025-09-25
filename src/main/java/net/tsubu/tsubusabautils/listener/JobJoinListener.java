@@ -1,6 +1,7 @@
 package net.tsubu.tsubusabautils.listener;
 
 import net.tsubu.tsubusabautils.TsubusabaUtils;
+import net.tsubu.tsubusabautils.manager.SidebarManager;
 import org.bukkit.advancement.Advancement;
 import org.bukkit.Bukkit;
 import org.bukkit.NamespacedKey;
@@ -16,9 +17,11 @@ import com.gamingmesh.jobs.container.JobProgression;
 public class JobJoinListener implements Listener {
 
     private final TsubusabaUtils plugin;
+    private final SidebarManager sidebarManager;
 
-    public JobJoinListener(TsubusabaUtils plugin) {
+    public JobJoinListener(TsubusabaUtils plugin, SidebarManager sidebarManager) {
         this.plugin = plugin;
+        this.sidebarManager = sidebarManager;
     }
 
     @EventHandler
@@ -26,10 +29,12 @@ public class JobJoinListener implements Listener {
         Player player = event.getPlayer().getPlayer();
         if (player == null) return;
         String jobName = event.getJob().getName();
+        String jobDisplayName = event.getJob().getDisplayName();
 
         Bukkit.getScheduler().runTaskLater(plugin, () -> {
             processJobCountAdvancements(player);          // any-job-join.first, second, third
-            processSpecificJobAdvancements(player, jobName); // specific-job-join.Miner など
+            processSpecificJobAdvancements(player, jobName, jobDisplayName); // specific-job-join.Miner など
+            sidebarManager.updateJobs(player);
         }, 1L);
     }
 
@@ -63,7 +68,7 @@ public class JobJoinListener implements Listener {
     /**
      * 特定職業による進捗を処理
      */
-    private void processSpecificJobAdvancements(Player player, String jobName) {
+    private void processSpecificJobAdvancements(Player player, String jobName, String jobDisplayName) {
         String advancementId = plugin.getConfig().getString("specific-job-join." + jobName);
 
         if (advancementId != null && !advancementId.isEmpty()) {

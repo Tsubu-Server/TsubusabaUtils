@@ -93,6 +93,32 @@ public class HomeManager {
         return homes != null ? homes : Collections.emptyList();
     }
 
+    /**
+     * 指定したプレイヤーのホームを削除する
+     * @param player プレイヤー
+     * @param homeName ホーム名
+     * @return 削除に成功したか
+     */
+    public boolean deleteHome(Player player, String homeName) {
+        User user = essentials.getUser(player);
+        if (user == null) return false;
+
+        if (!user.getHomes().contains(homeName)) {
+            player.sendMessage("§cそのホームは存在しません！");
+            return false;
+        }
+
+        try {
+            user.delHome(homeName);
+            player.sendMessage("§aホーム \"" + homeName + "§a\" を削除しました！");
+            return true;
+        } catch (Exception e) {
+            player.sendMessage("§cホーム削除中にエラーが発生しました！");
+            e.printStackTrace();
+            return false;
+        }
+    }
+
     public Location getHome(Player player, String name) {
         User user = essentials.getUser(player);
         if (user == null) return null;
