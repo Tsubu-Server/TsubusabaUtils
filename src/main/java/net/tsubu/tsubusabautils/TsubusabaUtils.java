@@ -6,6 +6,7 @@ import net.tsubu.tsubusabautils.listener.JobJoinListener;
 import net.tsubu.tsubusabautils.listener.JobLeaveListener;
 import net.tsubu.tsubusabautils.listener.JobLevelListener;
 import net.tsubu.tsubusabautils.listener.SetHomeListener;
+import net.tsubu.tsubusabautils.listener.GMenuListener;  // 追加
 import net.tsubu.tsubusabautils.manager.*;
 import org.bukkit.Bukkit;
 import org.bukkit.Location;
@@ -40,6 +41,7 @@ public class TsubusabaUtils extends JavaPlugin implements Listener {
     private static TsubusabaUtils instance;
     private SidebarManager sidebarManager;
     private RecipeGUIManager recipeGUIManager;
+    private GMenuListener gMenuListener;  // 追加
 
     @Override
     public void onEnable() {
@@ -83,6 +85,7 @@ public class TsubusabaUtils extends JavaPlugin implements Listener {
         this.griefPreventionMenuManager = new GriefPreventionMenuManager(this, griefPrevention, economy);
         this.adminSellManager = new AdminSellManager(this, economy);
         this.recipeGUIManager = new RecipeGUIManager(this);
+        this.gMenuListener = new GMenuListener(this);
 
         Objects.requireNonNull(this.getCommand("sendmoney")).setExecutor(new SendMoneyCommand(this));
         Objects.requireNonNull(this.getCommand("thome")).setExecutor(new ThomeCommand(this));
@@ -98,10 +101,11 @@ public class TsubusabaUtils extends JavaPlugin implements Listener {
         getServer().getPluginManager().registerEvents(invincibilityManager, this);
         getServer().getPluginManager().registerEvents(griefPreventionMenuManager, this);
         getServer().getPluginManager().registerEvents(adminSellManager, this);
+        getServer().getPluginManager().registerEvents(recipeGUIManager, this);
+        getServer().getPluginManager().registerEvents(gMenuListener, this);
         getServer().getPluginManager().registerEvents(new JobJoinListener(this, sidebarManager), this);
         getServer().getPluginManager().registerEvents(new JobLevelListener(this, sidebarManager), this);
         getServer().getPluginManager().registerEvents(new JobLeaveListener(this, sidebarManager), this);
-        getServer().getPluginManager().registerEvents(recipeGUIManager, this);
         getServer().getPluginManager().registerEvents(new SetHomeListener(this, essentials), this);
 
         getLogger().info("TsubusabaUtilsが有効になりました。");
@@ -113,7 +117,6 @@ public class TsubusabaUtils extends JavaPlugin implements Listener {
                 sidebarManager.updateBalance(event.getPlayer());
             }
         }, this);
-
 
         Bukkit.getScheduler().runTaskTimer(this, () -> {
             for (Player player : Bukkit.getOnlinePlayers()) {
@@ -188,11 +191,16 @@ public class TsubusabaUtils extends JavaPlugin implements Listener {
     public AdminSellManager getAdminSellManager() {
         return adminSellManager;
     }
-    public static TsubusabaUtils getInstance() {   // ← 追加
+
+    public static TsubusabaUtils getInstance() {
         return instance;
     }
 
-    public SidebarManager getSidebarManager() {    // ← 追加
+    public SidebarManager getSidebarManager() {
         return sidebarManager;
+    }
+
+    public GMenuListener getGMenuListener() {
+        return gMenuListener;
     }
 }

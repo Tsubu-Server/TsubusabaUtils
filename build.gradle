@@ -52,7 +52,7 @@ dependencies {
     compileOnly files('libs/Jobs5.2.6.3.jar')
     compileOnly files('libs/GPFlags-5.13.8.jar')
     compileOnly 'net.luckperms:api:5.4'
-    compileOnly 'com.github.GriefPrevention:GriefPrevention:16.18.2'
+    compileOnly 'com.github.GriefPrevention:GriefPrevention:16.18.4'
     implementation 'net.wesjd:anvilgui:1.10.8-SNAPSHOT'
 }
 

@@ -145,9 +145,9 @@ public class AmountGUIManager implements Listener {
 
         if (eco.withdrawPlayer(sender, amount).transactionSuccess()) {
             if (eco.depositPlayer(target, amount).transactionSuccess()) {
-                sender.sendMessage(Component.text(target.getName() + "に" + df.format(amount) + "$を送金しました！")
+                sender.sendMessage(Component.text(target.getName() + "に" + df.format(amount) + "Dを送金しました！")
                         .color(NamedTextColor.GREEN));
-                target.sendMessage(Component.text(sender.getName() + "から" + df.format(amount) + "$を受け取りました！")
+                target.sendMessage(Component.text(sender.getName() + "から" + df.format(amount) + "Dを受け取りました！")
                         .color(NamedTextColor.GREEN));
 
                 sender.sendMessage(Component.text("現在の所持金: " + df.format(eco.getBalance(sender)) + "D")
@@ -157,7 +157,6 @@ public class AmountGUIManager implements Listener {
                 target.playSound(target.getLocation(), Sound.ENTITY_PLAYER_LEVELUP, 1.0f, 1.5f);
                 sender.closeInventory();
             } else {
-                // 受取人への入金に失敗した場合、送金者に返金
                 eco.depositPlayer(sender, amount);
                 sender.sendMessage(Component.text("送金に失敗しました。お金を返金しました。").color(NamedTextColor.RED));
                 sender.playSound(sender.getLocation(), Sound.ENTITY_VILLAGER_NO, 1.0f, 1.0f);

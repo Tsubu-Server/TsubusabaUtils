@@ -116,7 +116,8 @@ public class GriefPreventionMenuManager implements Listener {
     }
 
     public void openMainMenu(Player player) {
-        Inventory inv = Bukkit.createInventory(null, 45, Component.text("土地メニュー").color(NamedTextColor.BLUE));
+        Inventory inv = Bukkit.createInventory(null, 45, Component.text("土地メニュー")
+                        .decoration(TextDecoration.BOLD, true).color(NamedTextColor.BLUE).decoration(TextDecoration.ITALIC, false));
 
         inv.setItem(4, createPlayerInfoItem(player));
 
@@ -127,8 +128,7 @@ public class GriefPreventionMenuManager implements Listener {
         inv.setItem(28, createMenuItem(Material.PLAYER_HEAD, "プレイヤー追加/管理",
                 Arrays.asList("現在の土地にプレイヤーを追加したり、", "権限を管理します")));
         inv.setItem(30, createMenuItem(Material.GRASS_BLOCK, "土地一覧",
-                Arrays.asList("自分の所有している土地を", "一覧で表示します")));
-
+                Arrays.asList("自分が所有/所属している土地を", "一覧で表示します")));
         inv.setItem(14, createMenuItem(Material.EMERALD_BLOCK, "保護ブロック数購入",
                 Arrays.asList("保護ブロックを", "購入します")));
         inv.setItem(16, createMenuItem(Material.RED_CONCRETE, "土地放棄",
@@ -548,12 +548,30 @@ public class GriefPreventionMenuManager implements Listener {
 
     public void openClaimListMenu(Player player, int page) {
         PlayerData playerData = GriefPrevention.instance.dataStore.getPlayerData(player.getUniqueId());
-        List<Claim> claims = playerData.getClaims().stream()
+
+        List<Claim> ownedClaims = playerData.getClaims().stream()
                 .filter(claim -> claim.parent == null)
                 .collect(Collectors.toList());
 
+        List<Claim> accessibleClaims = new ArrayList<>();
+        String playerIdString = player.getUniqueId().toString();
+
+        for (Claim claim : GriefPrevention.instance.dataStore.getClaims()) {
+            if (claim.parent != null) continue;
+            if (claim.getOwnerID() != null && claim.getOwnerID().equals(player.getUniqueId())) continue;
+
+            ClaimPermission permission = claim.getPermission(playerIdString);
+            if (permission != null) {
+                accessibleClaims.add(claim);
+            }
+        }
+
+        List<Claim> allClaims = new ArrayList<>();
+        allClaims.addAll(ownedClaims);
+        allClaims.addAll(accessibleClaims);
+
         int pageSize = 45;
-        int totalClaims = claims.size();
+        int totalClaims = allClaims.size();
         int totalPages = (int) Math.ceil((double) totalClaims / pageSize);
 
         if (page < 0) page = 0;
@@ -568,7 +586,8 @@ public class GriefPreventionMenuManager implements Listener {
                         .decorate(TextDecoration.BOLD));
 
         for (int i = start; i < end; i++) {
-            gui.setItem(i - start, createClaimItem(claims.get(i)));
+            Claim claim = allClaims.get(i);
+            gui.setItem(i - start, createClaimItem(claim, player));
         }
 
         gui.setItem(45, createMenuItem(Material.ARROW, "戻る", Arrays.asList("土地メニューに戻る")));
@@ -727,19 +746,33 @@ public class GriefPreventionMenuManager implements Listener {
         return item;
     }
 
-    private ItemStack createClaimItem(Claim claim) {
+    private ItemStack createClaimItem(Claim claim, Player player) {
         ItemStack item = new ItemStack(Material.GRASS_BLOCK);
         item.editMeta(meta -> {
             String name = getClaimName(claim);
+
+            boolean isOwner = claim.getOwnerID() != null && claim.getOwnerID().equals(player.getUniqueId());
+            String ownerName = "";
+
+            if (!isOwner && claim.getOwnerID() != null) {
+                try {
+                    ownerName = Bukkit.getOfflinePlayer(claim.getOwnerID()).getName();
+                    if (ownerName == null) ownerName = "不明";
+                } catch (Exception e) {
+                    ownerName = "不明";
+                }
+            }
+
+            NamedTextColor titleColor = isOwner ? NamedTextColor.GREEN : NamedTextColor.YELLOW;
             meta.displayName(Component.text(name)
-                    .color(NamedTextColor.GREEN)
+                    .color(titleColor)
                     .decoration(TextDecoration.ITALIC, false));
 
             int area = (int) ((claim.getGreaterBoundaryCorner().getX() - claim.getLesserBoundaryCorner().getX() + 1)
                     * (claim.getGreaterBoundaryCorner().getZ() - claim.getLesserBoundaryCorner().getZ() + 1));
 
             int centerX = (int) ((claim.getLesserBoundaryCorner().getX() + claim.getGreaterBoundaryCorner().getX()) / 2);
-            int centerZ = (int) ((claim.getLesserBoundaryCorner().getZ() + claim.getGreaterBoundaryCorner().getZ()) / 2);
+            int centerZ = (int) ((claim.getLesserBoundaryCorner().getZ() + claim.getLesserBoundaryCorner().getZ()) / 2);
             int centerY = claim.getLesserBoundaryCorner().getWorld().getHighestBlockYAt(centerX, centerZ);
 
             Location center = new Location(claim.getLesserBoundaryCorner().getWorld(),
@@ -747,17 +780,53 @@ public class GriefPreventionMenuManager implements Listener {
                     centerY,
                     centerZ);
 
-            List<Component> lore = Arrays.asList(
-                    Component.text("面積: " + df.format(area) + " ブロック")
-                            .color(NamedTextColor.AQUA)
-                            .decoration(TextDecoration.ITALIC, false),
-                    Component.text("座標: X:" + center.getBlockX() + ", Y:" + center.getBlockY() + ", Z:" + center.getBlockZ())
-                            .color(NamedTextColor.GREEN)
-                            .decoration(TextDecoration.ITALIC, false),
-                    Component.text("クリック/タップでテレポート")
-                            .color(NamedTextColor.GOLD)
-                            .decoration(TextDecoration.ITALIC, false)
-            );
+            List<Component> lore = new ArrayList<>();
+
+            if (isOwner) {
+                lore.add(Component.text("自分の土地")
+                        .color(NamedTextColor.GREEN)
+                        .decoration(TextDecoration.ITALIC, false));
+            } else {
+                lore.add(Component.text("所有者: " + ownerName)
+                        .color(NamedTextColor.YELLOW)
+                        .decoration(TextDecoration.ITALIC, false));
+
+                ClaimPermission permission = claim.getPermission(player.getUniqueId().toString());
+                String permissionText = "不明";
+                NamedTextColor permissionColor = NamedTextColor.GRAY;
+
+                if (permission != null) {
+                    switch (permission) {
+                        case Access:
+                            permissionText = "訪問者";
+                            permissionColor = NamedTextColor.YELLOW;
+                            break;
+                        case Inventory:
+                            permissionText = "利用者";
+                            permissionColor = NamedTextColor.GOLD;
+                            break;
+                        case Build:
+                            permissionText = "建築者";
+                            permissionColor = NamedTextColor.RED;
+                            break;
+                    }
+                }
+
+                lore.add(Component.text("権限: " + permissionText)
+                        .color(permissionColor)
+                        .decoration(TextDecoration.ITALIC, false));
+            }
+
+            lore.add(Component.text("面積: " + df.format(area) + " ブロック")
+                    .color(NamedTextColor.AQUA)
+                    .decoration(TextDecoration.ITALIC, false));
+            lore.add(Component.text("座標: X:" + center.getBlockX() + ", Y:" + center.getBlockY() + ", Z:" + center.getBlockZ())
+                    .color(NamedTextColor.GREEN)
+                    .decoration(TextDecoration.ITALIC, false));
+            lore.add(Component.text("クリック/タップでテレポート")
+                    .color(NamedTextColor.GOLD)
+                    .decoration(TextDecoration.ITALIC, false));
+
             meta.lore(lore);
         });
         return item;
@@ -903,7 +972,6 @@ public class GriefPreventionMenuManager implements Listener {
         GPFlags gpFlags = (GPFlags) Bukkit.getPluginManager().getPlugin("GPFlags");
         FlagManager flagManager = gpFlags.getFlagManager();
 
-        // displayName からフラグIDを取得
         String flagId = flagsToShow.stream()
                 .filter(fd -> fd.displayName.equals(clickedName))
                 .map(fd -> fd.id)

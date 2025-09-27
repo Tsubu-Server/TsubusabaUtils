@@ -19,6 +19,7 @@ import net.kyori.adventure.text.format.TextDecoration;
 import net.kyori.adventure.text.serializer.plain.PlainTextComponentSerializer;
 import net.milkbowl.vault.economy.Economy;
 
+import java.text.DecimalFormat;
 import java.util.*;
 
 public class GUIManager implements Listener {
@@ -26,6 +27,7 @@ public class GUIManager implements Listener {
     private final TsubusabaUtils plugin;
     private final Map<UUID, Integer> playerPages = new HashMap<>();
     private static final int ITEMS_PER_PAGE = 45;
+    private static final DecimalFormat df = new DecimalFormat("#,##0.#");
 
     public GUIManager(TsubusabaUtils plugin) {
         this.plugin = plugin;
@@ -109,13 +111,13 @@ public class GUIManager implements Listener {
                 .decoration(TextDecoration.ITALIC, false));
 
         Economy economy = TsubusabaUtils.getEconomy();
-        String balance = "N/A";
+        double balance = 0.0;
         if (economy != null) {
-            balance = economy.format(economy.getBalance(player));
+            balance = economy.getBalance(player);
         }
 
         List<Component> lore = Arrays.asList(
-                Component.text("所持金: " + balance + "D")
+                Component.text("所持金: " + df.format(balance) + "D")
                         .color(NamedTextColor.YELLOW)
                         .decorate(TextDecoration.BOLD)
                         .decoration(TextDecoration.ITALIC, false)
