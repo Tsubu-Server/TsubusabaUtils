@@ -62,10 +62,10 @@ public class GUIManager implements Listener {
         }
 
         if (page > 0) {
-            gui.setItem(48, createNavigationItem(Material.ARROW, "前のページ", NamedTextColor.YELLOW));
+            gui.setItem(48, createNavigationItem(Material.ORANGE_DYE, "◀ 前のページ", NamedTextColor.YELLOW));
         }
         if (page < totalPages - 1) {
-            gui.setItem(50, createNavigationItem(Material.ARROW, "次のページ", NamedTextColor.YELLOW));
+            gui.setItem(50, createNavigationItem(Material.LIME_DYE, "次のページ ▶", NamedTextColor.YELLOW));
         }
         gui.setItem(53, createNavigationItem(Material.BARRIER, "閉じる", NamedTextColor.RED));
         gui.setItem(45, createNavigationItem(Material.SPECTRAL_ARROW, "メインメニューに戻る", NamedTextColor.GOLD));
@@ -188,7 +188,7 @@ public class GUIManager implements Listener {
                 player.playSound(player.getLocation(), Sound.UI_BUTTON_CLICK, 1.0f, 1.0f);
                 player.performCommand("menu");
             } else if (clickedItem.getType() == Material.PLAYER_HEAD) {
-                if (slot < 45) { // 他のプレイヤーの頭
+                if (slot < 45) {
                     if (meta instanceof SkullMeta skullMeta && skullMeta.getOwningPlayer() != null) {
                         String targetName = PlainTextComponentSerializer.plainText().serialize(meta.displayName());
                         Player target = Bukkit.getPlayer(targetName);

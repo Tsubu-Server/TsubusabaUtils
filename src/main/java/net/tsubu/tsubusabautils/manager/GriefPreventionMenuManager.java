@@ -15,10 +15,7 @@ import net.kyori.adventure.text.serializer.plain.PlainTextComponentSerializer;
 import net.milkbowl.vault.economy.Economy;
 import net.tsubu.tsubusabautils.TsubusabaUtils;
 import net.wesjd.anvilgui.AnvilGUI;
-import org.bukkit.Bukkit;
-import org.bukkit.Location;
-import org.bukkit.Material;
-import org.bukkit.Sound;
+import org.bukkit.*;
 import org.bukkit.configuration.file.FileConfiguration;
 import org.bukkit.configuration.file.YamlConfiguration;
 import org.bukkit.enchantments.Enchantment;
@@ -48,7 +45,8 @@ public class GriefPreventionMenuManager implements Listener {
     private final Map<UUID, Long> lastClickTime = new HashMap<>();
     private final Map<UUID, Integer> pendingPurchaseAmount = new HashMap<>();
     private final Map<UUID, Integer> pendingSellAmount = new HashMap<>();
-    private static final long COOLDOWN_MS = 100;
+    private final Map<UUID, String> playerSearchQuery = new HashMap<>();
+    private static final long COOLDOWN_MS = 50;
     private static final DecimalFormat df = new DecimalFormat("#,##0.#");
     private final double claimBlockCost;
     private final double sellRate;
@@ -148,32 +146,129 @@ public class GriefPreventionMenuManager implements Listener {
         player.openInventory(inv);
     }
 
-    public void openPlayerListMenu(Player player) {
-        List<Player> onlinePlayers = new ArrayList<>();
-        for (Player p : Bukkit.getOnlinePlayers()) {
-            if (!p.equals(player)) {
-                onlinePlayers.add(p);
+    public void openPlayerListMenu(Player player, int page) {
+        openPlayerListMenu(player, page, null);
+    }
+
+    private void openPlayerListMenu(Player player, int page, String searchQuery) {
+        Bukkit.getScheduler().runTaskAsynchronously(plugin, () -> {
+            List<OfflinePlayer> onlinePlayers = new ArrayList<>();
+            List<OfflinePlayer> offlinePlayers = new ArrayList<>();
+
+            for (OfflinePlayer op : Bukkit.getOfflinePlayers()) {
+                if (op.isBanned()) continue;
+                if (op.getUniqueId().equals(player.getUniqueId())) continue;
+
+                if (searchQuery != null && !searchQuery.isEmpty()) {
+                    String name = op.getName();
+                    if (name == null || !name.toLowerCase().contains(searchQuery.toLowerCase())) {
+                        continue;
+                    }
+                }
+
+                if (op.isOnline()) onlinePlayers.add(op);
+                else offlinePlayers.add(op);
             }
-        }
+
+            List<OfflinePlayer> sortedPlayers = new ArrayList<>();
+            sortedPlayers.addAll(onlinePlayers);
+            sortedPlayers.addAll(offlinePlayers);
+
+            Bukkit.getScheduler().runTask(plugin, () -> {
+                openPlayerListMenuSync(player, page, searchQuery, sortedPlayers);
+            });
+        });
+    }
+
+    private void openPlayerListMenuSync(Player player, int page, String searchQuery, List<OfflinePlayer> sortedPlayers) {
+        int pageSize = 45;
+        int totalPlayers = sortedPlayers.size();
+        int totalPages = (int) Math.ceil((double) totalPlayers / pageSize);
+
+        if (page < 0) page = 0;
+        if (page >= totalPages && totalPages > 0) page = totalPages - 1;
+
+        int start = page * pageSize;
+        int end = Math.min(start + pageSize, totalPlayers);
+
+        String title = searchQuery != null && !searchQuery.isEmpty()
+                ? "検索: " + searchQuery + " - ページ " + (page + 1) + "/" + Math.max(1, totalPages)
+                : "プレイヤー一覧 - ページ " + (page + 1) + "/" + Math.max(1, totalPages);
 
         Inventory gui = Bukkit.createInventory(null, 54,
-                Component.text("プレイヤー一覧")
+                Component.text(title)
                         .color(NamedTextColor.BLUE)
                         .decorate(TextDecoration.BOLD)
                         .decoration(TextDecoration.ITALIC, false));
 
-        for (int i = 0; i < Math.min(onlinePlayers.size(), 45); i++) {
-            Player target = onlinePlayers.get(i);
-            gui.setItem(i, createPlayerHeadItem(target));
+        for (int i = start; i < end; i++) {
+            OfflinePlayer target = sortedPlayers.get(i);
+            gui.setItem(i - start, createPlayerHeadItemFull(target));
         }
 
+        ItemStack searchItem = new ItemStack(Material.SPYGLASS);
+        searchItem.editMeta(meta -> {
+            meta.displayName(Component.text("プレイヤー検索")
+                    .color(NamedTextColor.AQUA)
+                    .decoration(TextDecoration.ITALIC, false));
+            List<Component> lore = new ArrayList<>();
+            if (searchQuery != null && !searchQuery.isEmpty()) {
+                lore.add(Component.text("現在の検索: " + searchQuery)
+                        .color(NamedTextColor.YELLOW)
+                        .decoration(TextDecoration.ITALIC, false));
+                lore.add(Component.text("クリックで検索をクリア")
+                        .color(NamedTextColor.GRAY)
+                        .decoration(TextDecoration.ITALIC, false));
+            } else {
+                lore.add(Component.text("クリックして名前で検索")
+                        .color(NamedTextColor.GREEN)
+                        .decoration(TextDecoration.ITALIC, false));
+            }
+            meta.lore(lore);
+        });
+        gui.setItem(49, searchItem);
+
         gui.setItem(45, createMenuItem(Material.ARROW, "戻る", Arrays.asList("土地メニューに戻る")));
+        if (page > 0) {
+            gui.setItem(48, createMenuItem(Material.ORANGE_DYE, "◀ 前のページ", Arrays.asList("前のページへ")));
+        }
+        if (page < totalPages - 1) {
+            gui.setItem(50, createMenuItem(Material.LIME_DYE, "次のページ ▶", Arrays.asList("次のページへ")));
+        }
         gui.setItem(53, createMenuItem(Material.BARRIER, "閉じる", Arrays.asList("メニューを閉じます")));
 
         player.openInventory(gui);
     }
 
-    private void openPermissionMenu(Player player, Player target) {
+    private void openPlayerSearchInput(Player player) {
+        new AnvilGUI.Builder()
+                .onClick((slot, stateSnapshot) -> {
+                    if (slot != AnvilGUI.Slot.OUTPUT) {
+                        return Collections.emptyList();
+                    }
+
+                    String searchQuery = stateSnapshot.getText();
+                    if (searchQuery == null || searchQuery.trim().isEmpty()) {
+                        return List.of(AnvilGUI.ResponseAction.replaceInputText("名前を入力"));
+                    }
+
+                    String query = searchQuery.trim();
+                    playerSearchQuery.put(player.getUniqueId(), query);
+                    player.playSound(player.getLocation(), Sound.ITEM_BOOK_PAGE_TURN, 1.0f, 1.0f);
+
+                    Bukkit.getScheduler().runTask(plugin, () -> {
+                        openPlayerListMenu(player, 0, query);
+                    });
+
+                    return List.of(AnvilGUI.ResponseAction.close());
+                })
+                .text("")
+                .title("プレイヤー検索")
+                .plugin(plugin)
+                .open(player);
+    }
+
+    private void openPermissionMenu(Player player, OfflinePlayer target) {
         String title = "権限設定: " + target.getName();
         Inventory menu = Bukkit.createInventory(null, 27, Component.text(title)
                 .color(NamedTextColor.DARK_AQUA)
@@ -181,7 +276,9 @@ public class GriefPreventionMenuManager implements Listener {
 
         ItemStack playerHead = new ItemStack(Material.PLAYER_HEAD);
         SkullMeta skullMeta = (SkullMeta) playerHead.getItemMeta();
-        skullMeta.setOwningPlayer(target);
+        com.destroystokyo.paper.profile.PlayerProfile profile = Bukkit.createProfile(target.getUniqueId(), target.getName());
+        profile.complete();
+        skullMeta.setPlayerProfile(profile);
         playerHead.setItemMeta(skullMeta);
         menu.setItem(4, playerHead);
 
@@ -228,16 +325,22 @@ public class GriefPreventionMenuManager implements Listener {
                 )
         ));
 
-        ItemStack banItem = new ItemStack(Material.RED_DYE);
-        ItemMeta banMeta = banItem.getItemMeta();
-        banMeta.displayName(Component.text("追放")
-                .color(NamedTextColor.RED)
-                .decorate(TextDecoration.BOLD)
-                .decoration(TextDecoration.ITALIC, false));
-        banItem.setItemMeta(banMeta);
-        menu.setItem(26, banItem);
+        boolean isOwner = claim.getOwnerID() != null && claim.getOwnerID().equals(player.getUniqueId());
+        boolean isMember = currentPermission != null;
+
+        if (isOwner && isMember) {
+            ItemStack banItem = new ItemStack(Material.RED_DYE);
+            ItemMeta banMeta = banItem.getItemMeta();
+            banMeta.displayName(Component.text("追放")
+                    .color(NamedTextColor.RED)
+                    .decorate(TextDecoration.BOLD)
+                    .decoration(TextDecoration.ITALIC, false));
+            banItem.setItemMeta(banMeta);
+            menu.setItem(22, banItem);
+        }
+
         menu.setItem(18, createMenuItem(Material.ARROW, "戻る", Arrays.asList("土地メニューに戻る")));
-        menu.setItem(22, createMenuItem(Material.BARRIER, "閉じる", Arrays.asList("メニューを閉じます")));
+        menu.setItem(26, createMenuItem(Material.BARRIER, "閉じる", Arrays.asList("メニューを閉じます")));
 
         player.openInventory(menu);
     }
@@ -271,7 +374,7 @@ public class GriefPreventionMenuManager implements Listener {
                     .color(NamedTextColor.GREEN)
                     .decoration(TextDecoration.ITALIC, false)
             );
-            meta.lore();
+            meta.lore(lore);
         });
         gui.setItem(4, landItem);
 
@@ -402,6 +505,30 @@ public class GriefPreventionMenuManager implements Listener {
 
     private ItemStack createMenuItem(Material material, String name, List<String> lore) {
         return createMenuItem(material, name, lore, NamedTextColor.YELLOW);
+    }
+
+    private ItemStack createPlayerHeadItemFull(OfflinePlayer target) {
+        ItemStack item = new ItemStack(Material.PLAYER_HEAD);
+        SkullMeta meta = (SkullMeta) item.getItemMeta();
+
+        com.destroystokyo.paper.profile.PlayerProfile profile = Bukkit.createProfile(target.getUniqueId(), target.getName());
+        profile.complete();
+
+        meta.setPlayerProfile(profile);
+        meta.displayName(Component.text(target.getName() != null ? target.getName() : "不明")
+                .color(target.isOnline() ? NamedTextColor.GREEN : NamedTextColor.GRAY)
+                .decoration(TextDecoration.ITALIC, false));
+        List<Component> lore = Arrays.asList(
+                Component.text("クリック/タップで追加・管理")
+                        .color(NamedTextColor.GOLD)
+                        .decoration(TextDecoration.ITALIC, false),
+                Component.text(target.isOnline() ? "オンライン" : "オフライン")
+                        .color(target.isOnline() ? NamedTextColor.GREEN : NamedTextColor.RED)
+                        .decoration(TextDecoration.ITALIC, false)
+        );
+        meta.lore(lore);
+        item.setItemMeta(meta);
+        return item;
     }
 
     private ItemStack createPermissionItem(String name, boolean granted, List<Component> lore) {
@@ -600,7 +727,7 @@ public class GriefPreventionMenuManager implements Listener {
         int end = Math.min(start + pageSize, totalClaims);
 
         Inventory gui = Bukkit.createInventory(null, 54,
-                Component.text("土地一覧 (Page " + (page + 1) + "/" + Math.max(1, totalPages) + ")")
+                Component.text("土地一覧 - ページ " + (page + 1) + "/" + Math.max(1, totalPages))
                         .color(NamedTextColor.AQUA)
                         .decorate(TextDecoration.BOLD));
 
@@ -632,6 +759,7 @@ public class GriefPreventionMenuManager implements Listener {
 
         if (claim.allowEdit(player) != null && !player.hasPermission("griefprevention.adminclaims")) {
             player.sendMessage(Component.text("この土地の編集権限がありません！").color(NamedTextColor.RED));
+            player.closeInventory();
             return;
         }
 
@@ -741,30 +869,6 @@ public class GriefPreventionMenuManager implements Listener {
         player.openInventory(gui);
     }
 
-
-    private ItemStack createPlayerHeadItem(Player target) {
-        ItemStack item = new ItemStack(Material.PLAYER_HEAD);
-        SkullMeta meta = (SkullMeta) item.getItemMeta();
-
-        meta.setOwningPlayer(target);
-        meta.displayName(Component.text(target.getName())
-                .color(NamedTextColor.GREEN)
-                .decoration(TextDecoration.ITALIC, false));
-
-        List<Component> lore = Arrays.asList(
-                Component.text("クリック/タップで追加・管理")
-                        .color(NamedTextColor.GOLD)
-                        .decoration(TextDecoration.ITALIC, false),
-                Component.text("オンライン")
-                        .color(NamedTextColor.GREEN)
-                        .decoration(TextDecoration.ITALIC, false)
-        );
-        meta.lore(lore);
-
-        item.setItemMeta(meta);
-        return item;
-    }
-
     private ItemStack createClaimItem(Claim claim, Player player) {
         ItemStack item = new ItemStack(Material.GRASS_BLOCK);
         item.editMeta(meta -> {
@@ -773,13 +877,10 @@ public class GriefPreventionMenuManager implements Listener {
             boolean isOwner = claim.getOwnerID() != null && claim.getOwnerID().equals(player.getUniqueId());
             String ownerName = "";
 
-            if (!isOwner && claim.getOwnerID() != null) {
-                try {
-                    ownerName = Bukkit.getOfflinePlayer(claim.getOwnerID()).getName();
-                    if (ownerName == null) ownerName = "不明";
-                } catch (Exception e) {
-                    ownerName = "不明";
-                }
+            OfflinePlayer owner = null;
+            if (claim.getOwnerID() != null) {
+                owner = Bukkit.getOfflinePlayer(claim.getOwnerID());
+                ownerName = owner.getName() != null ? owner.getName() : "不明";
             }
 
             NamedTextColor titleColor = isOwner ? NamedTextColor.GREEN : NamedTextColor.YELLOW;
@@ -805,15 +906,24 @@ public class GriefPreventionMenuManager implements Listener {
                 lore.add(Component.text("自分の土地")
                         .color(NamedTextColor.GREEN)
                         .decoration(TextDecoration.ITALIC, false));
-            } else {
+            } else if (owner != null) {
                 lore.add(Component.text("所有者: " + ownerName)
                         .color(NamedTextColor.YELLOW)
                         .decoration(TextDecoration.ITALIC, false));
+            } else {
+                lore.add(Component.text("所有者: 不明")
+                        .color(NamedTextColor.YELLOW)
+                        .decoration(TextDecoration.ITALIC, false));
+            }
 
+            String permissionText;
+            NamedTextColor permissionColor;
+
+            if (isOwner) {
+                permissionText = "オーナー";
+                permissionColor = NamedTextColor.GOLD;
+            } else {
                 ClaimPermission permission = claim.getPermission(player.getUniqueId().toString());
-                String permissionText = "不明";
-                NamedTextColor permissionColor = NamedTextColor.GRAY;
-
                 if (permission != null) {
                     switch (permission) {
                         case Access:
@@ -828,15 +938,22 @@ public class GriefPreventionMenuManager implements Listener {
                             permissionText = "建築者";
                             permissionColor = NamedTextColor.RED;
                             break;
+                        default:
+                            permissionText = "不明";
+                            permissionColor = NamedTextColor.GRAY;
+                            break;
                     }
+                } else {
+                    permissionText = "不明";
+                    permissionColor = NamedTextColor.GRAY;
                 }
-
-                lore.add(Component.text("権限: " + permissionText)
-                        .color(permissionColor)
-                        .decoration(TextDecoration.ITALIC, false));
             }
 
-            lore.add(Component.text("面積: " + df.format(area) + " ブロック")
+            lore.add(Component.text("権限: " + permissionText)
+                    .color(permissionColor)
+                    .decoration(TextDecoration.ITALIC, false));
+
+            lore.add(Component.text("面積: " + df.format(area) + "ブロック")
                     .color(NamedTextColor.AQUA)
                     .decoration(TextDecoration.ITALIC, false));
             lore.add(Component.text("座標: X:" + center.getBlockX() + ", Y:" + center.getBlockY() + ", Z:" + center.getBlockZ())
@@ -875,9 +992,11 @@ public class GriefPreventionMenuManager implements Listener {
 
         if (titleText.contains("土地メニュー") || titleText.contains("プレイヤー一覧") ||
                 titleText.contains("権限設定") || titleText.contains("土地一覧") || titleText.equals("保護ブロック数購入") ||
-                titleText.equals("土地保護設定") || titleText.equals("土地放棄確認") || titleText.equals("保護ブロック数売却")) {
+                titleText.equals("土地保護設定") || titleText.equals("土地放棄確認") || titleText.equals("保護ブロック数売却") ||
+                titleText.contains("検索:")
+        ) {
 
-            if (event.getClick() == ClickType.DROP || event.getClick() == ClickType.CONTROL_DROP) {
+            if (event.getClick() == ClickType.DROP || event.getClick() == ClickType.CONTROL_DROP || event.getClick() == ClickType.SHIFT_LEFT || event.getClick() == ClickType.SHIFT_RIGHT) {
                 event.setCancelled(true);
                 return;
             }
@@ -901,13 +1020,13 @@ public class GriefPreventionMenuManager implements Listener {
 
         if (titleText.equals("土地メニュー")) {
             handleMainMenuClick(player, itemName);
-        } else if (titleText.equals("プレイヤー一覧")) {
-            handlePlayerListClick(player, itemName, clicked);
+        } else if (titleText.equals("プレイヤー一覧") || titleText.contains("プレイヤー一覧 - ページ ") || titleText.contains("検索:")) {
+        handlePlayerListClick(player, itemName, clicked, titleText);
         } else if (titleText.startsWith("権限設定:")) {
             handlePermissionMenuClick(player, titleText, itemName);
         } else if (titleText.equals("保護ブロック数購入")) {
             handleBlockPurchaseClick(player, itemName);
-        } else if (titleText.contains("土地一覧 (Page ")) {
+        } else if (titleText.contains("土地一覧 - ページ ")) {
             handleClaimListClick(player, itemName, clicked, titleText);
         } else if (titleText.equals("土地保護設定")) {
             handleFlagMenuClick(player, clicked);
@@ -924,7 +1043,7 @@ public class GriefPreventionMenuManager implements Listener {
         switch (itemName) {
             case "土地保護設定" -> openFlagMenu(player);
             case "土地名前変更" -> openRenameAnvil(player);
-            case "プレイヤー追加/管理" -> openPlayerListMenu(player);
+            case "プレイヤー追加/管理" -> openPlayerListMenu(player, 0);
             case "土地一覧" -> openClaimListMenu(player, 0);
             case "保護ブロック数購入" -> {
                 pendingPurchaseAmount.put(player.getUniqueId(), 0);
@@ -1049,23 +1168,54 @@ public class GriefPreventionMenuManager implements Listener {
         }
     }
 
-    private void handlePlayerListClick(Player player, String itemName, ItemStack clicked) {
+    private void handlePlayerListClick(Player player, String itemName, ItemStack clicked, String titleText) {
         if (itemName.equals("戻る")) {
             player.playSound(player.getLocation(), Sound.UI_BUTTON_CLICK, 1.0f, 1.0f);
+            playerSearchQuery.remove(player.getUniqueId());
             openMainMenu(player);
             return;
         }
 
         if (itemName.equals("閉じる")) {
             player.playSound(player.getLocation(), Sound.UI_BUTTON_CLICK, 1.0f, 1.0f);
+            playerSearchQuery.remove(player.getUniqueId());
             player.closeInventory();
             return;
         }
 
+        if (itemName.equals("プレイヤー検索")) {
+            player.playSound(player.getLocation(), Sound.UI_BUTTON_CLICK, 1.0f, 1.0f);
+
+            String currentQuery = playerSearchQuery.get(player.getUniqueId());
+            if (currentQuery != null && !currentQuery.isEmpty()) {
+                playerSearchQuery.remove(player.getUniqueId());
+                openPlayerListMenu(player, 0, null);
+            } else {
+                openPlayerSearchInput(player);
+            }
+            return;
+        }
+
+        if (titleText.contains("プレイヤー一覧 - ページ ") || titleText.contains("検索:")) {
+            String searchQuery = playerSearchQuery.get(player.getUniqueId());
+            String pageInfo = titleText.split("ページ ")[1];
+            int currentPage = Integer.parseInt(pageInfo.split("/")[0]);
+
+            if (itemName.equals("◀ 前のページ")) {
+                player.playSound(player.getLocation(), Sound.UI_BUTTON_CLICK, 1.0f, 1.0f);
+                openPlayerListMenu(player, currentPage - 2, searchQuery);
+                return;
+            } else if (itemName.equals("次のページ ▶")) {
+                player.playSound(player.getLocation(), Sound.UI_BUTTON_CLICK, 1.0f, 1.0f);
+                openPlayerListMenu(player, currentPage, searchQuery);
+                return;
+            }
+        }
+
         if (clicked.getType() == Material.PLAYER_HEAD) {
             String targetName = PlainTextComponentSerializer.plainText().serialize(clicked.getItemMeta().displayName());
-            Player target = Bukkit.getPlayer(targetName);
-            if (target != null && target.isOnline()) {
+            OfflinePlayer target = Bukkit.getOfflinePlayer(targetName);
+            if (target != null) {
                 player.playSound(player.getLocation(), Sound.UI_BUTTON_CLICK, 1.0f, 1.2f);
                 openPermissionMenu(player, target);
             }
@@ -1075,7 +1225,7 @@ public class GriefPreventionMenuManager implements Listener {
     private void handlePermissionMenuClick(Player player, String titleText, String itemName) {
         if (itemName.equals("戻る")) {
             player.playSound(player.getLocation(), Sound.UI_BUTTON_CLICK, 1.0f, 1.0f);
-            openPlayerListMenu(player);
+            openPlayerListMenu(player, 0);
             return;
         }
 
@@ -1086,9 +1236,9 @@ public class GriefPreventionMenuManager implements Listener {
         }
 
         String targetName = titleText.replace("権限設定: ", "");
-        Player target = Bukkit.getPlayer(targetName);
+        OfflinePlayer target = Bukkit.getOfflinePlayer(targetName);
 
-        if (target == null) {
+        if (target == null || target.getName() == null) {
             player.sendMessage(Component.text("対象プレイヤーが見つかりません！").color(NamedTextColor.RED));
             player.closeInventory();
             return;
@@ -1174,10 +1324,9 @@ public class GriefPreventionMenuManager implements Listener {
             case "購入確定" -> {
                 if (newAmount > 0) {
                     double price = newAmount * claimBlockCost;
-                    purchaseClaimBlocks(player, newAmount, price); // 内部で成功なら閉じ、失敗なら再描画
+                    purchaseClaimBlocks(player, newAmount, price);
                     pendingPurchaseAmount.remove(player.getUniqueId());
                 } else {
-                    // 数量が 0 以下の場合
                     player.playSound(player.getLocation(), Sound.ENTITY_VILLAGER_NO, 1.0f, 1.0f);
                     openBlockPurchaseMenu(player, newAmount);
                 }
@@ -1262,7 +1411,7 @@ public class GriefPreventionMenuManager implements Listener {
             return;
         }
 
-        int currentPage = Integer.parseInt(titleText.split("\\(Page ")[1].split("/")[0]);
+        int currentPage = Integer.parseInt(titleText.split("ページ ")[1].split("/")[0]);
 
         if (itemName.equals("◀ 前のページ")) {
             player.playSound(player.getLocation(), Sound.UI_BUTTON_CLICK, 1.0f, 1.0f);

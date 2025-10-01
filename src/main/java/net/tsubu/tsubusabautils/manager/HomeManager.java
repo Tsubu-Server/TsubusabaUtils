@@ -75,7 +75,6 @@ public class HomeManager {
         if (econ.has(player, price)) {
             econ.withdrawPlayer(player, price);
 
-            // 修正箇所：正しいLuckPermsグループ名を使ってノードを作成
             InheritanceNode node = InheritanceNode.builder(luckPermsGroup).build();
             lpUser.data().add(node);
             luckPerms.getUserManager().saveUser(lpUser);
