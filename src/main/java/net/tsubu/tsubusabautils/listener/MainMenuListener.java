@@ -10,11 +10,11 @@ import org.bukkit.event.player.PlayerInteractEvent;
 import org.bukkit.inventory.EquipmentSlot;
 import org.bukkit.inventory.ItemStack;
 
-public class GMenuListener implements Listener {
+public class MainMenuListener implements Listener {
 
     private final TsubusabaUtils plugin;
 
-    public GMenuListener(TsubusabaUtils plugin) {
+    public MainMenuListener(TsubusabaUtils plugin) {
         this.plugin = plugin;
     }
 
@@ -25,9 +25,9 @@ public class GMenuListener implements Listener {
         if (action != Action.LEFT_CLICK_BLOCK && action != Action.LEFT_CLICK_AIR) return;
         Player player = event.getPlayer();
         ItemStack item = player.getInventory().getItemInMainHand();
-        if (item == null || item.getType() != Material.PAPER) return;
+        if (item == null || item.getType() != Material.COMPASS) return;
 
         event.setCancelled(true);
-        plugin.getGriefPreventionMenuManager().openMainMenu(player);
+        player.performCommand("menu");
     }
 }

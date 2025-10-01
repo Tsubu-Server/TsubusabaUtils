@@ -2,11 +2,7 @@ package net.tsubu.tsubusabautils;
 
 import net.milkbowl.vault.economy.Economy;
 import net.tsubu.tsubusabautils.command.*;
-import net.tsubu.tsubusabautils.listener.JobJoinListener;
-import net.tsubu.tsubusabautils.listener.JobLeaveListener;
-import net.tsubu.tsubusabautils.listener.JobLevelListener;
-import net.tsubu.tsubusabautils.listener.SetHomeListener;
-import net.tsubu.tsubusabautils.listener.GMenuListener;  // 追加
+import net.tsubu.tsubusabautils.listener.*;
 import net.tsubu.tsubusabautils.manager.*;
 import org.bukkit.Bukkit;
 import org.bukkit.Location;
@@ -41,7 +37,7 @@ public class TsubusabaUtils extends JavaPlugin implements Listener {
     private static TsubusabaUtils instance;
     private SidebarManager sidebarManager;
     private RecipeGUIManager recipeGUIManager;
-    private GMenuListener gMenuListener;  // 追加
+    private GMenuListener gMenuListener;
 
     @Override
     public void onEnable() {
@@ -92,7 +88,7 @@ public class TsubusabaUtils extends JavaPlugin implements Listener {
         Objects.requireNonNull(this.getCommand("returndeath")).setExecutor(new DeathCommand(this, invincibilityManager));
         Objects.requireNonNull(this.getCommand("gmenu")).setExecutor(new GMenuCommand(this));
         Objects.requireNonNull(this.getCommand("adminsell")).setExecutor(new AdminSellCommand(this));
-        Objects.requireNonNull(this.getCommand("rec")).setExecutor(new RecipeCommand(this, recipeGUIManager));
+        Objects.requireNonNull(this.getCommand("rec")).setExecutor(new RecipeCommand(recipeGUIManager));
 
         getServer().getPluginManager().registerEvents(this, this);
         getServer().getPluginManager().registerEvents(guiManager, this);
@@ -103,6 +99,7 @@ public class TsubusabaUtils extends JavaPlugin implements Listener {
         getServer().getPluginManager().registerEvents(adminSellManager, this);
         getServer().getPluginManager().registerEvents(recipeGUIManager, this);
         getServer().getPluginManager().registerEvents(gMenuListener, this);
+        getServer().getPluginManager().registerEvents(new MainMenuListener(this), this);
         getServer().getPluginManager().registerEvents(new JobJoinListener(this, sidebarManager), this);
         getServer().getPluginManager().registerEvents(new JobLevelListener(this, sidebarManager), this);
         getServer().getPluginManager().registerEvents(new JobLeaveListener(this, sidebarManager), this);

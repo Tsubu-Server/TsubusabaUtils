@@ -39,16 +39,15 @@ public class AmountGUIManager implements Listener {
                         .color(NamedTextColor.GOLD)
                         .decorate(TextDecoration.BOLD));
 
-        gui.setItem(25, createDisplayItem(sender, target, amount));
+        // 金額表示アイテムは不要になる（スロット25削除）
+        // gui.setItem(25, createDisplayItem(sender, target, amount));
 
-        // 金額増減ボタン (+)
         gui.setItem(10, createButton(Material.GREEN_STAINED_GLASS_PANE, "+1"));
         gui.setItem(11, createButton(Material.GREEN_STAINED_GLASS_PANE, "+10"));
         gui.setItem(12, createButton(Material.GREEN_STAINED_GLASS_PANE, "+100"));
         gui.setItem(13, createButton(Material.GREEN_STAINED_GLASS_PANE, "+1000"));
         gui.setItem(14, createButton(Material.GREEN_STAINED_GLASS_PANE, "+10000"));
 
-        // 金額増減ボタン (-)
         gui.setItem(19, createButton(Material.RED_STAINED_GLASS_PANE, "-1"));
         gui.setItem(20, createButton(Material.RED_STAINED_GLASS_PANE, "-10"));
         gui.setItem(21, createButton(Material.RED_STAINED_GLASS_PANE, "-100"));
@@ -56,19 +55,26 @@ public class AmountGUIManager implements Listener {
         gui.setItem(23, createButton(Material.RED_STAINED_GLASS_PANE, "-10000"));
 
         gui.setItem(27, createButton(Material.ARROW, "戻る"));
-        gui.setItem(16, createButtonWithLore(Material.EMERALD_BLOCK, "送金する", Arrays.asList("クリック/タップで送金")));
+        gui.setItem(16, createSendButton(sender, target, amount));
         gui.setItem(35, createButton(Material.BARRIER, "閉じる"));
 
         sender.openInventory(gui);
     }
 
-    private ItemStack createDisplayItem(Player sender, Player target, double amount) {
-        ItemStack item = new ItemStack(Material.PAPER);
+    private ItemStack createSendButton(Player sender, Player target, double amount) {
+        ItemStack item = new ItemStack(Material.GOLD_BLOCK);
         item.editMeta(meta -> {
-            meta.displayName(Component.text("金額: " + df.format(amount) + "D").color(NamedTextColor.GOLD).decoration(TextDecoration.ITALIC, false));
+            meta.displayName(Component.text("送金する")
+                    .color(NamedTextColor.AQUA)
+                    .decoration(TextDecoration.ITALIC, false));
 
             List<Component> lore = new ArrayList<>();
-            lore.add(Component.text("送金先: " + target.getName()).color(NamedTextColor.AQUA).decoration(TextDecoration.ITALIC, false));
+            lore.add(Component.text("金額: " + df.format(amount) + "D")
+                    .color(NamedTextColor.YELLOW)
+                    .decoration(TextDecoration.ITALIC, false));
+            lore.add(Component.text("送金先: " + target.getName())
+                    .color(NamedTextColor.AQUA)
+                    .decoration(TextDecoration.ITALIC, false));
 
             Economy eco = TsubusabaUtils.getEconomy();
             if (eco != null) {
@@ -76,8 +82,10 @@ public class AmountGUIManager implements Listener {
                 lore.add(Component.text("残高: " + df.format(balance) + "D")
                         .color(NamedTextColor.GREEN)
                         .decoration(TextDecoration.ITALIC, false));
+                lore.add(Component.text("クリック/タップで送金")
+                        .color(NamedTextColor.GOLD)
+                        .decoration(TextDecoration.ITALIC, false));
 
-                // バリデーションチェック
                 if (amount <= 0) {
                     lore.add(Component.text("送金額は1円以上にしてください！")
                             .color(NamedTextColor.RED)
@@ -89,24 +97,6 @@ public class AmountGUIManager implements Listener {
                 }
             }
             meta.lore(lore);
-        });
-        return item;
-    }
-
-    private ItemStack createButtonWithLore(Material material, String name, List<String> lore) {
-        ItemStack item = new ItemStack(material);
-        item.editMeta(meta -> {
-            meta.displayName(Component.text(name)
-                    .color(NamedTextColor.AQUA)
-                    .decoration(TextDecoration.ITALIC, false));
-
-            List<Component> loreComponents = new ArrayList<>();
-            for (String line : lore) {
-                loreComponents.add(Component.text(line)
-                        .color(NamedTextColor.GOLD)
-                        .decoration(TextDecoration.ITALIC, false));
-            }
-            meta.lore(loreComponents);
         });
         return item;
     }
@@ -198,30 +188,30 @@ public class AmountGUIManager implements Listener {
                 .serialize(clicked.getItemMeta().displayName());
 
         Inventory gui = event.getInventory();
-
-        ItemStack display = gui.getItem(25);
+        ItemStack sendButton = gui.getItem(16);
         double amount = 0.0;
-        Player target;
-        if (display != null && display.hasItemMeta() && display.getItemMeta().displayName() != null) {
-            String displayName = PlainTextComponentSerializer.plainText()
-                    .serialize(display.getItemMeta().displayName());
-            try {
-                String amountStr = displayName.replace("金額: ", "").replace("D", "").replace(",", "").trim();
-                amount = Double.parseDouble(amountStr);
-            } catch (NumberFormatException e) {
-                amount = 0.0;
+        if (sendButton != null && sendButton.hasItemMeta() && sendButton.getItemMeta().lore() != null) {
+            for (Component line : sendButton.getItemMeta().lore()) {
+                String plain = PlainTextComponentSerializer.plainText().serialize(line);
+                if (plain.startsWith("金額:")) {
+                    try {
+                        String amountStr = plain.replace("金額:", "")
+                                .replace("D", "")
+                                .replace(",", "")
+                                .trim();
+                        amount = Double.parseDouble(amountStr);
+                    } catch (NumberFormatException ignored) {}
+                }
             }
         }
-
         String targetName = titleText.replace("送金先：", "").trim();
-        target = Bukkit.getPlayer(targetName);
+        Player target = Bukkit.getPlayer(targetName);
 
         if (target == null) {
             player.sendMessage(Component.text("送金先のプレイヤーが見つかりません").color(NamedTextColor.RED));
             player.closeInventory();
             return;
         }
-
         switch (name) {
             case "+1", "+10", "+100", "+1000", "+10000",
                  "-1", "-10", "-100", "-1000", "-10000" -> {
@@ -243,8 +233,7 @@ public class AmountGUIManager implements Listener {
                     newMeta.removeEnchant(Enchantment.INFINITY);
                     clicked.setItemMeta(newMeta);
                 }, 1L);
-
-                gui.setItem(25, createDisplayItem(player, target, amount));
+                gui.setItem(16, createSendButton(player, target, amount));
             }
             case "戻る" -> {
                 player.playSound(player.getLocation(), Sound.UI_BUTTON_CLICK, 1.0f, 1.0f);

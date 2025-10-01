@@ -25,6 +25,7 @@ import org.bukkit.enchantments.Enchantment;
 import org.bukkit.entity.Player;
 import org.bukkit.event.EventHandler;
 import org.bukkit.event.Listener;
+import org.bukkit.event.inventory.ClickType;
 import org.bukkit.event.inventory.InventoryClickEvent;
 import org.bukkit.inventory.Inventory;
 import org.bukkit.inventory.ItemFlag;
@@ -122,15 +123,19 @@ public class GriefPreventionMenuManager implements Listener {
         inv.setItem(4, createPlayerInfoItem(player));
 
         inv.setItem(10, createMenuItem(Material.REDSTONE_TORCH, "土地保護設定",
-                Arrays.asList("現在いる土地の保護を", "設定できます")));
+                Arrays.asList("現在いる土地の保護を設定できます")));
         inv.setItem(12, createMenuItem(Material.NAME_TAG, "土地名前変更",
-                Arrays.asList("現在いる土地の名前を", "変更します")));
+                Arrays.asList("現在いる土地の名前を変更します")));
         inv.setItem(28, createMenuItem(Material.PLAYER_HEAD, "プレイヤー追加/管理",
                 Arrays.asList("現在の土地にプレイヤーを追加したり、", "権限を管理します")));
-        inv.setItem(30, createMenuItem(Material.GRASS_BLOCK, "土地一覧",
-                Arrays.asList("自分が所有/所属している土地を", "一覧で表示します")));
+        inv.setItem(30, createMenuItemWithCustomLore(Material.GRASS_BLOCK, "土地一覧",
+                Arrays.asList(
+                        Component.text("自分が所有/所属している土地を").color(NamedTextColor.GREEN).decoration(TextDecoration.ITALIC, false),
+                        Component.text("一覧で表示します").color(NamedTextColor.GREEN).decoration(TextDecoration.ITALIC, false),
+                        Component.text("これは実験的機能です").color(NamedTextColor.YELLOW).decoration(TextDecoration.ITALIC, false)
+                )));
         inv.setItem(14, createMenuItem(Material.EMERALD_BLOCK, "保護ブロック数購入",
-                Arrays.asList("保護ブロックを", "購入します")));
+                Arrays.asList("保護ブロックを購入します")));
         inv.setItem(16, createMenuItem(Material.RED_CONCRETE, "土地放棄",
                 Arrays.asList("現在いる土地を放棄します")));
         inv.setItem(32, createMenuItem(Material.IRON_BLOCK, "保護ブロック数売却",
@@ -268,7 +273,7 @@ public class GriefPreventionMenuManager implements Listener {
             );
             meta.lore();
         });
-        gui.setItem(4, landItem); // 真ん中に設置
+        gui.setItem(4, landItem);
 
         gui.setItem(11, createMenuItem(Material.RED_CONCRETE, "はい", Arrays.asList("この土地を放棄します")));
         gui.setItem(15, createMenuItem(Material.GREEN_CONCRETE, "いいえ", Arrays.asList("土地メニューに戻る")));
@@ -284,54 +289,43 @@ public class GriefPreventionMenuManager implements Listener {
                         .decorate(TextDecoration.BOLD)
                         .decoration(TextDecoration.ITALIC, false));
 
-        gui.setItem(25, createPurchaseDisplayItem(player, amount));
-
+        gui.setItem(16, createPurchaseButton(player, amount));
         gui.setItem(10, createButton(Material.GREEN_STAINED_GLASS_PANE, "+1"));
         gui.setItem(11, createButton(Material.GREEN_STAINED_GLASS_PANE, "+10"));
         gui.setItem(12, createButton(Material.GREEN_STAINED_GLASS_PANE, "+100"));
         gui.setItem(13, createButton(Material.GREEN_STAINED_GLASS_PANE, "+1000"));
         gui.setItem(14, createButton(Material.GREEN_STAINED_GLASS_PANE, "+10000"));
-
         gui.setItem(19, createButton(Material.RED_STAINED_GLASS_PANE, "-1"));
         gui.setItem(20, createButton(Material.RED_STAINED_GLASS_PANE, "-10"));
         gui.setItem(21, createButton(Material.RED_STAINED_GLASS_PANE, "-100"));
         gui.setItem(22, createButton(Material.RED_STAINED_GLASS_PANE, "-1000"));
         gui.setItem(23, createButton(Material.RED_STAINED_GLASS_PANE, "-10000"));
 
-        gui.setItem(16, createMenuItemWithLore(Material.EMERALD_BLOCK, "購入確定",
-                Arrays.asList("クリック/タップで購入")));
         gui.setItem(27, createMenuItem(Material.ARROW, "戻る", Arrays.asList("土地メニューに戻る")));
-        gui.setItem(35, createMenuItem(Material.BARRIER, "閉じる",
-                Arrays.asList("メニューを閉じます")));
+        gui.setItem(35, createMenuItem(Material.BARRIER, "閉じる", Arrays.asList("メニューを閉じます")));
 
         player.openInventory(gui);
     }
 
     public void openBlockSellMenu(Player player, int amount) {
-        PlayerData playerData = griefPrevention.dataStore.getPlayerData(player.getUniqueId());
-        int remainingBlocks = playerData.getRemainingClaimBlocks();
-
         Inventory gui = Bukkit.createInventory(null, 36,
                 Component.text("保護ブロック数売却")
                         .color(NamedTextColor.GOLD)
                         .decorate(TextDecoration.BOLD)
                         .decoration(TextDecoration.ITALIC, false));
 
-        gui.setItem(25, createSellDisplayItem(player, amount, remainingBlocks));
-
+        gui.setItem(16, createSellButton(player, amount));
         gui.setItem(10, createButton(Material.GREEN_STAINED_GLASS_PANE, "+1"));
         gui.setItem(11, createButton(Material.GREEN_STAINED_GLASS_PANE, "+10"));
         gui.setItem(12, createButton(Material.GREEN_STAINED_GLASS_PANE, "+100"));
         gui.setItem(13, createButton(Material.GREEN_STAINED_GLASS_PANE, "+1000"));
         gui.setItem(14, createButton(Material.GREEN_STAINED_GLASS_PANE, "+10000"));
-
         gui.setItem(19, createButton(Material.RED_STAINED_GLASS_PANE, "-1"));
         gui.setItem(20, createButton(Material.RED_STAINED_GLASS_PANE, "-10"));
         gui.setItem(21, createButton(Material.RED_STAINED_GLASS_PANE, "-100"));
         gui.setItem(22, createButton(Material.RED_STAINED_GLASS_PANE, "-1000"));
         gui.setItem(23, createButton(Material.RED_STAINED_GLASS_PANE, "-10000"));
-        gui.setItem(16, createMenuItemWithLore(Material.GOLD_BLOCK, "売却確定",
-                Arrays.asList("クリック/タップで売却")));
+
         gui.setItem(27, createMenuItem(Material.ARROW, "戻る", Arrays.asList("土地メニューに戻る")));
         gui.setItem(35, createMenuItem(Material.BARRIER, "閉じる", Arrays.asList("メニューを閉じます")));
 
@@ -410,24 +404,6 @@ public class GriefPreventionMenuManager implements Listener {
         return createMenuItem(material, name, lore, NamedTextColor.YELLOW);
     }
 
-    private ItemStack createMenuItemWithLore(Material material, String name, List<String> lore) {
-        ItemStack item = new ItemStack(material);
-        item.editMeta(meta -> {
-            meta.displayName(Component.text(name)
-                    .color(NamedTextColor.AQUA)
-                    .decoration(TextDecoration.ITALIC, false));
-
-            List<Component> loreComponents = new ArrayList<>();
-            for (String line : lore) {
-                loreComponents.add(Component.text(line)
-                        .color(NamedTextColor.GOLD)
-                        .decoration(TextDecoration.ITALIC, false));
-            }
-            meta.lore(loreComponents);
-        });
-        return item;
-    }
-
     private ItemStack createPermissionItem(String name, boolean granted, List<Component> lore) {
         Material material = granted ? Material.LIME_CONCRETE : Material.RED_CONCRETE;
         String status = granted ? "✓" : "✗";
@@ -444,52 +420,95 @@ public class GriefPreventionMenuManager implements Listener {
         return item;
     }
 
-    private ItemStack createSellDisplayItem(Player player, int amount, int remainingBlocks) {
-        double sellPrice = amount * sellRate;
+    private ItemStack createSellButton(Player player, int amount) {
+        PlayerData playerData = griefPrevention.dataStore.getPlayerData(player.getUniqueId());
+        int remainingBlocks = playerData.getRemainingClaimBlocks();
 
-        ItemStack item = new ItemStack(Material.PAPER);
+        ItemStack item = new ItemStack(Material.IRON_BLOCK);
         item.editMeta(meta -> {
-            meta.displayName(Component.text("合計: " + amount + "個")
+            meta.displayName(Component.text("売却確定")
                     .color(NamedTextColor.AQUA)
                     .decoration(TextDecoration.ITALIC, false));
 
             List<Component> lore = new ArrayList<>();
-            lore.add(Component.text("価格: " + df.format(sellPrice) + "D")
+
+            double sellValue = griefPrevention.getConfig().getDouble("economy.ClaimBlocksSellValue", 1.0);
+            double price = amount * sellValue;
+
+            lore.add(Component.text("合計: " + amount + "個")
                     .color(NamedTextColor.GREEN)
                     .decoration(TextDecoration.ITALIC, false));
-            lore.add(Component.text("現在の所持ブロック数: " + remainingBlocks + "個")
-                    .color(NamedTextColor.GREEN)
+            lore.add(Component.text("売却額: " + df.format(price) + "D")
+                    .color(NamedTextColor.YELLOW)
                     .decoration(TextDecoration.ITALIC, false));
-            if (amount > remainingBlocks) {
+            lore.add(Component.text("所持ブロック数: " + remainingBlocks)
+                    .color(NamedTextColor.AQUA)
+                    .decoration(TextDecoration.ITALIC, false));
+            lore.add(Component.text("クリック/タップで売却")
+                    .color(NamedTextColor.GOLD)
+                    .decoration(TextDecoration.ITALIC, false));
+
+            if (amount <= 0) {
+                lore.add(Component.text("売却数は1以上にしてください！")
+                        .color(NamedTextColor.RED)
+                        .decoration(TextDecoration.ITALIC, false));
+            } else if (amount > remainingBlocks) {
                 lore.add(Component.text("所持ブロック数を超えています！")
                         .color(NamedTextColor.RED)
                         .decoration(TextDecoration.ITALIC, false));
             }
+
             meta.lore(lore);
         });
         return item;
     }
 
-    private ItemStack createPurchaseDisplayItem(Player player, int amount) {
-        ItemStack item = new ItemStack(Material.PAPER);
+    private ItemStack createPurchaseButton(Player player, int amount) {
+        ItemStack item = new ItemStack(Material.EMERALD_BLOCK);
         item.editMeta(meta -> {
-            double price = amount * claimBlockCost;
-            meta.displayName(Component.text("合計: " + df.format(amount) + "個")
+            meta.displayName(Component.text("購入確定")
                     .color(NamedTextColor.AQUA)
                     .decoration(TextDecoration.ITALIC, false));
 
             List<Component> lore = new ArrayList<>();
+
+            double price = amount * claimBlockCost;
+            lore.add(Component.text("合計: " + amount + "個")
+                    .color(NamedTextColor.GREEN)
+                    .decoration(TextDecoration.ITALIC, false));
             lore.add(Component.text("価格: " + df.format(price) + "D")
-                    .color(NamedTextColor.GREEN)
+                    .color(NamedTextColor.YELLOW)
                     .decoration(TextDecoration.ITALIC, false));
-            lore.add(Component.text("現在の所持金: " + df.format(economy.getBalance(player)) + "D")
-                    .color(NamedTextColor.GREEN)
+
+            double balance = economy.getBalance(player);
+            lore.add(Component.text("残高: " + df.format(balance) + "D")
+                    .color(NamedTextColor.AQUA)
                     .decoration(TextDecoration.ITALIC, false));
-            if (economy.getBalance(player) < price) {
+            lore.add(Component.text("クリック/タップで購入")
+                    .color(NamedTextColor.GOLD)
+                    .decoration(TextDecoration.ITALIC, false));
+
+            if (amount <= 0) {
+                lore.add(Component.text("購入数は1以上にしてください！")
+                        .color(NamedTextColor.RED)
+                        .decoration(TextDecoration.ITALIC, false));
+            } else if (balance < price) {
                 lore.add(Component.text("所持金が不足しています")
                         .color(NamedTextColor.RED)
                         .decoration(TextDecoration.ITALIC, false));
             }
+
+            meta.lore(lore);
+        });
+        return item;
+    }
+
+    private ItemStack createMenuItemWithCustomLore(Material material, String name, List<Component> lore) {
+        ItemStack item = new ItemStack(material);
+        item.editMeta(meta -> {
+            meta.displayName(Component.text(name)
+                    .color(NamedTextColor.YELLOW)
+                    .decoration(TextDecoration.ITALIC, false));
             meta.lore(lore);
         });
         return item;
@@ -772,7 +791,7 @@ public class GriefPreventionMenuManager implements Listener {
                     * (claim.getGreaterBoundaryCorner().getZ() - claim.getLesserBoundaryCorner().getZ() + 1));
 
             int centerX = (int) ((claim.getLesserBoundaryCorner().getX() + claim.getGreaterBoundaryCorner().getX()) / 2);
-            int centerZ = (int) ((claim.getLesserBoundaryCorner().getZ() + claim.getLesserBoundaryCorner().getZ()) / 2);
+            int centerZ = (int) ((claim.getLesserBoundaryCorner().getZ() + claim.getGreaterBoundaryCorner().getZ()) / 2);
             int centerY = claim.getLesserBoundaryCorner().getWorld().getHighestBlockYAt(centerX, centerZ);
 
             Location center = new Location(claim.getLesserBoundaryCorner().getWorld(),
@@ -857,6 +876,11 @@ public class GriefPreventionMenuManager implements Listener {
         if (titleText.contains("土地メニュー") || titleText.contains("プレイヤー一覧") ||
                 titleText.contains("権限設定") || titleText.contains("土地一覧") || titleText.equals("保護ブロック数購入") ||
                 titleText.equals("土地保護設定") || titleText.equals("土地放棄確認") || titleText.equals("保護ブロック数売却")) {
+
+            if (event.getClick() == ClickType.DROP || event.getClick() == ClickType.CONTROL_DROP) {
+                event.setCancelled(true);
+                return;
+            }
             event.setCancelled(true);
         }
 

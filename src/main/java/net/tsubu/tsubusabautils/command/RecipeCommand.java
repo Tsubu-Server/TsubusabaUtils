@@ -1,6 +1,5 @@
 package net.tsubu.tsubusabautils.command;
 
-import net.tsubu.tsubusabautils.TsubusabaUtils;
 import net.tsubu.tsubusabautils.manager.RecipeGUIManager;
 import org.bukkit.command.Command;
 import org.bukkit.command.CommandExecutor;
@@ -12,7 +11,7 @@ public class RecipeCommand implements CommandExecutor {
 
     private final RecipeGUIManager recipeGUIManager;
 
-    public RecipeCommand(TsubusabaUtils plugin, RecipeGUIManager recipeGUIManager) {
+    public RecipeCommand(RecipeGUIManager recipeGUIManager) {
         this.recipeGUIManager = recipeGUIManager;
     }
 
