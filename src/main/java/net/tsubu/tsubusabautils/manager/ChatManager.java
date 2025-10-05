@@ -1,161 +1,256 @@
 package net.tsubu.tsubusabautils.manager;
 
-import net.milkbowl.vault.economy.Economy;
-import net.milkbowl.vault.economy.EconomyResponse;
+import com.google.gson.JsonArray;
+import com.google.gson.JsonParser;
+import io.papermc.paper.event.player.AsyncChatEvent;
+import net.kyori.adventure.audience.Audience;
 import net.kyori.adventure.text.Component;
-import net.kyori.adventure.text.format.NamedTextColor;
+import net.kyori.adventure.text.serializer.plain.PlainTextComponentSerializer;
+import net.kyori.adventure.text.serializer.legacy.LegacyComponentSerializer;
+import net.luckperms.api.LuckPerms;
+import net.luckperms.api.model.user.User;
 import net.tsubu.tsubusabautils.TsubusabaUtils;
-import org.bukkit.Bukkit;
-import org.bukkit.Sound;
+import org.bukkit.configuration.file.FileConfiguration;
 import org.bukkit.entity.Player;
 import org.bukkit.event.EventHandler;
 import org.bukkit.event.EventPriority;
 import org.bukkit.event.Listener;
-import org.bukkit.event.player.AsyncPlayerChatEvent;
-import org.bukkit.event.player.PlayerQuitEvent;
+import org.jetbrains.annotations.NotNull;
 
+import java.io.BufferedReader;
+import java.io.InputStreamReader;
+import java.net.HttpURLConnection;
+import java.net.URL;
+import java.net.URLEncoder;
+import java.nio.charset.StandardCharsets;
 import java.util.HashMap;
 import java.util.Map;
-import java.util.UUID;
+import java.util.concurrent.CompletableFuture;
 
 public class ChatManager implements Listener {
 
     private final TsubusabaUtils plugin;
-    private final Map<UUID, Player> awaitingAmount = new HashMap<>();
+    private final LuckPerms luckPerms;
+    private static final String GOOGLE_INPUTTOOLS_API =
+            "https://inputtools.google.com/request?itc=ja-t-i0-und&num=1&text=";
+    private static final LegacyComponentSerializer LEGACY_SERIALIZER = LegacyComponentSerializer.legacyAmpersand();
+    private final Map<String, String> customDictionary = new HashMap<>();
 
-    public ChatManager(TsubusabaUtils plugin) {
+    public ChatManager(TsubusabaUtils plugin, LuckPerms luckPerms) {
         this.plugin = plugin;
+        this.luckPerms = luckPerms;
+        loadDictionary();
     }
 
-    public void startPaymentProcess(Player sender, Player target) {
-        awaitingAmount.put(sender.getUniqueId(), target);
-
-        sender.playSound(sender.getLocation(), Sound.ENTITY_PLAYER_LEVELUP, 1.0f, 1.5f);
-
-        sender.sendMessage(Component.empty());
-        sender.sendMessage(Component.text(target.getName() + " へ送金します")
-                .color(NamedTextColor.GREEN));
-        sender.sendMessage(Component.empty());
-        sender.sendMessage(Component.text("チャットに金額（数字）を入力してください（例：50, 100, 1000）")
-                .color(NamedTextColor.GOLD));
-        sender.sendMessage(Component.text("取引をキャンセルするには'cancel'と入力してください")
-                .color(NamedTextColor.RED));
-        sender.sendMessage(Component.empty());
+    private void loadDictionary() {
+        FileConfiguration config = plugin.getConfig();
+        if (config.isConfigurationSection("dictionary")) {
+            for (String key : config.getConfigurationSection("dictionary").getKeys(false)) {
+                String value = config.getString("dictionary." + key, key);
+                customDictionary.put(key, value);
+            }
+            plugin.getLogger().info("Loaded " + customDictionary.size() + " dictionary entries.");
+        }
     }
 
-    @EventHandler(priority = EventPriority.LOWEST)
-    public void onPlayerChat(AsyncPlayerChatEvent event) {
-        Player player = event.getPlayer();
-        UUID playerUUID = player.getUniqueId();
+    @EventHandler(priority = EventPriority.HIGHEST)
+    public void onAsyncChat(@NotNull AsyncChatEvent event) {
+        String originalText = PlainTextComponentSerializer.plainText().serialize(event.message());
+        if (originalText == null || originalText.isEmpty()) return;
+        Component originalMessageComponent = event.message();
 
-        if (!awaitingAmount.containsKey(playerUUID)) return;
+        if (originalText.matches(".*[\\p{IsHan}\\p{IsHiragana}\\p{IsKatakana}].*")) {
+            Component comp = Component.text(originalText).style(originalMessageComponent.style());
+            event.setCancelled(true);
+            sendFinalMessage(event, comp, originalText, false);
+            return;
+        }
+
+        if (originalText.startsWith(".")) {
+            String raw = originalText.substring(1);
+            Component comp = Component.text(raw).style(originalMessageComponent.style());
+            event.setCancelled(true);
+            sendFinalMessage(event, comp, raw, false);
+            return;
+        }
 
         event.setCancelled(true);
-        Player target = awaitingAmount.remove(playerUUID);
 
-        if (target == null || !target.isOnline()) {
-            player.sendMessage(Component.text("取引がキャンセルされました： 対象プレイヤーがオフラインになりました").color(NamedTextColor.RED));
-            return;
+        CompletableFuture.supplyAsync(() -> {
+            try {
+                String dictApplied = applyDictionary(originalText);
+                String converted = convertTextWithWordSplit(dictApplied);
+
+                if (converted == null || converted.isEmpty()) {
+                    return dictApplied + "§§FAIL§§" + originalText;
+                }
+
+                return converted + "§§API§§" + originalText;
+            } catch (Exception e) {
+                return applyDictionary(originalText) + "§§ERR§§" + originalText;
+            }
+        }).thenAccept(result -> {
+            plugin.getServer().getScheduler().runTask(plugin, () -> {
+                String[] parts = result.split("§§(API|ERR|FAIL)§§");
+                String convertedText = parts[0];
+                String original = parts.length > 1 ? parts[1] : originalText;
+
+                Component convertedComponent = Component.text(convertedText)
+                        .hoverEvent(Component.text("原文: " + original));
+
+                sendFinalMessage(event, convertedComponent, original, true);
+            });
+        }).exceptionally(ex -> {
+            plugin.getServer().getScheduler().runTask(plugin, () -> {
+                Component comp = Component.text(originalText).style(originalMessageComponent.style());
+                sendFinalMessage(event, comp, originalText, false);
+            });
+            return null;
+        });
+    }
+
+    /**
+     * 辞書適用（部分一致すべて置換）
+     */
+    private String applyDictionary(String text) {
+        String result = text;
+        for (Map.Entry<String, String> entry : customDictionary.entrySet()) {
+            result = result.replace(entry.getKey(), entry.getValue());
+        }
+        return result;
+    }
+
+    /**
+     * テキストを単語ごとに分割して変換（カンマ、スペースなどを保持）
+     */
+    private String convertTextWithWordSplit(String text) {
+        StringBuilder result = new StringBuilder();
+        StringBuilder currentWord = new StringBuilder();
+
+        for (int i = 0; i < text.length(); i++) {
+            char c = text.charAt(i);
+            if (Character.isLetterOrDigit(c)) {
+                currentWord.append(c);
+            } else {
+                if (currentWord.length() > 0) {
+                    String word = currentWord.toString();
+                    String converted = convertWithGoogleInputTools(word);
+                    result.append(converted != null ? converted : word);
+                    currentWord.setLength(0);
+                }
+                if (c == ',') {
+                    result.append('、');
+                } else {
+                    result.append(c);
+                }
+            }
         }
 
-        String message = event.getMessage().trim();
-        if (message.equalsIgnoreCase("cancel")) {
-            player.sendMessage(Component.text("取引中止").color(NamedTextColor.YELLOW));
-            return;
+        if (currentWord.length() > 0) {
+            String word = currentWord.toString();
+            String converted = convertWithGoogleInputTools(word);
+            result.append(converted != null ? converted : word);
         }
 
-        double amount;
+        return result.toString();
+    }
+
+    private void sendFinalMessage(@NotNull AsyncChatEvent event, @NotNull Component messageComponent,
+                                  @NotNull String plainText, boolean wasConverted) {
+        event.setCancelled(true);
+
+        Player sender = event.getPlayer();
+        Component displayName = getPlayerDisplayName(sender);
+
+        for (Audience audience : event.viewers()) {
+            Component rendered = event.renderer().render(sender, displayName, messageComponent, audience);
+            audience.sendMessage(rendered);
+        }
+
+    }
+
+    private Component getPlayerDisplayName(@NotNull Player player) {
+        Component nameComponent = Component.text(player.getName());
+
+        if (luckPerms != null) {
+            try {
+                User lpUser = luckPerms.getPlayerAdapter(Player.class).getUser(player);
+                if (lpUser != null) {
+                    String prefix = lpUser.getCachedData().getMetaData().getPrefix();
+                    String suffix = lpUser.getCachedData().getMetaData().getSuffix();
+
+                    Component prefixComponent = prefix != null ? LEGACY_SERIALIZER.deserialize(prefix) : Component.empty();
+                    Component suffixComponent = suffix != null ? LEGACY_SERIALIZER.deserialize(suffix) : Component.empty();
+                    return prefixComponent.append(nameComponent).append(suffixComponent);
+                }
+            } catch (Exception ignored) {}
+        }
+        return nameComponent;
+    }
+
+    private String convertWithGoogleInputTools(String text) {
+        HttpURLConnection connection = null;
         try {
-            amount = Double.parseDouble(message);
-            if (amount <= 0) {
-                player.sendMessage(Component.text("正の数を入力してください").color(NamedTextColor.RED));
-                return;
-            }
-        } catch (NumberFormatException e) {
-            player.sendMessage(Component.text("無効な金額です。有効な数字を入力するか、「キャンセル」してください").color(NamedTextColor.RED));
-            return;
-        }
+            String encodedText = URLEncoder.encode(text, StandardCharsets.UTF_8);
+            URL url = new URL(GOOGLE_INPUTTOOLS_API + encodedText);
 
-        Bukkit.getScheduler().runTask(plugin, () -> {
-            Economy economy = TsubusabaUtils.getEconomy();
-            if (economy == null) {
-                player.sendMessage(Component.text("Economy plugin not found. Cannot process payment.").color(NamedTextColor.RED));
-                return;
+            connection = (HttpURLConnection) url.openConnection();
+            connection.setRequestMethod("GET");
+            connection.setConnectTimeout(5000);
+            connection.setReadTimeout(5000);
+            connection.setRequestProperty("User-Agent", "Mozilla/5.0");
+
+            int responseCode = connection.getResponseCode();
+            if (responseCode != 200) {
+                return null;
             }
 
-            if (!economy.has(player, amount)) {
-                player.sendMessage(Component.text("所持金が不足しています").color(NamedTextColor.RED));
-                return;
-            }
-
-            EconomyResponse response = economy.withdrawPlayer(player, amount);
-            if (response.transactionSuccess()) {
-                EconomyResponse depositResponse = economy.depositPlayer(target, amount);
-                if (depositResponse.transactionSuccess()) {
-                    player.sendMessage(Component.text("送金に成功しました！ " + target.getName() + "に $" + formatAmount(amount) + " 送りました").color(NamedTextColor.GREEN));
-                    target.sendMessage(Component.text(player.getName() + "から $" + formatAmount(amount) + " 受け取りました").color(NamedTextColor.GREEN));
-                } else {
-                    economy.depositPlayer(player, amount);
-                    player.sendMessage(Component.text("支払いに失敗しました！お金は返却されます").color(NamedTextColor.RED));
+            StringBuilder response = new StringBuilder();
+            try (BufferedReader reader = new BufferedReader(
+                    new InputStreamReader(connection.getInputStream(), StandardCharsets.UTF_8))) {
+                String line;
+                while ((line = reader.readLine()) != null) {
+                    response.append(line);
                 }
-            } else {
-                player.sendMessage(Component.text("支払いに失敗しました！もう一度お試しください").color(NamedTextColor.RED));
             }
-        });
-    }
 
-    private String formatAmount(double amount) {
-        if (amount == (long) amount) {
-            return String.format("%d", (long) amount);
-        } else {
-            return String.format("%.2f", amount);
+            String respStr = response.toString();
+
+            if (!respStr.startsWith("[") || !respStr.endsWith("]")) {
+                return null;
+            }
+
+            JsonArray jsonArray = JsonParser.parseString(respStr).getAsJsonArray();
+            if (jsonArray.size() < 2) {
+                return null;
+            }
+
+            String status = jsonArray.get(0).getAsString();
+            if (!"SUCCESS".equals(status)) {
+                return null;
+            }
+
+            JsonArray resultArray = jsonArray.get(1).getAsJsonArray();
+            if (resultArray.size() == 0) {
+                return null;
+            }
+
+            JsonArray firstCandidateArray = resultArray.get(0).getAsJsonArray();
+            if (firstCandidateArray.size() < 2) {
+                return null;
+            }
+
+            JsonArray candidates = firstCandidateArray.get(1).getAsJsonArray();
+            if (candidates.size() == 0) {
+                return null;
+            }
+
+            return candidates.get(0).getAsString();
+
+        } catch (Exception e) {
+            return null;
+        } finally {
+            if (connection != null) connection.disconnect();
         }
-    }
-
-    @EventHandler
-    public void onPlayerQuit(PlayerQuitEvent event) {
-        awaitingAmount.remove(event.getPlayer().getUniqueId());
-    }
-
-    public boolean isAwaitingPayment(Player player) {
-        return awaitingAmount.containsKey(player.getUniqueId());
-    }
-
-    public void cancelPayment(Player player) {
-        awaitingAmount.remove(player.getUniqueId());
-    }
-
-    public void processPayment(Player sender, Player target, double amount) {
-        Bukkit.getScheduler().runTask(plugin, () -> {
-            Economy economy = TsubusabaUtils.getEconomy();
-            if (economy == null) {
-                sender.sendMessage(Component.text("Economy plugin not found. Cannot process payment.")
-                        .color(NamedTextColor.RED));
-                return;
-            }
-
-            if (!economy.has(sender, amount)) {
-                sender.sendMessage(Component.text("所持金が不足しています").color(NamedTextColor.RED));
-                return;
-            }
-
-            EconomyResponse response = economy.withdrawPlayer(sender, amount);
-            if (response.transactionSuccess()) {
-                EconomyResponse depositResponse = economy.depositPlayer(target, amount);
-                if (depositResponse.transactionSuccess()) {
-                    sender.sendMessage(Component.text("送金に成功しました！ " + target.getName() +
-                            " に $" + formatAmount(amount) + " 送りました").color(NamedTextColor.GREEN));
-                    target.sendMessage(Component.text(sender.getName() +
-                            " から $" + formatAmount(amount) + " 受け取りました").color(NamedTextColor.GREEN));
-                } else {
-                    economy.depositPlayer(sender, amount); // 失敗したら返金
-                    sender.sendMessage(Component.text("支払いに失敗しました！お金は返却されます")
-                            .color(NamedTextColor.RED));
-                }
-            } else {
-                sender.sendMessage(Component.text("支払いに失敗しました！もう一度お試しください")
-                        .color(NamedTextColor.RED));
-            }
-        });
     }
 }

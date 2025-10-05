@@ -76,12 +76,13 @@ public class TsubusabaUtils extends JavaPlugin implements Listener {
         this.homeGUIManager = new HomeGUIManager(this, homeManager);
         this.guiManager = new GUIManager(this);
         this.amountGUIManager = new AmountGUIManager(this);
-        this.chatManager = new ChatManager(this);
+        this.chatManager = new ChatManager(this, luckPerms);
         this.invincibilityManager = new InvincibilityManager();
         this.griefPreventionMenuManager = new GriefPreventionMenuManager(this, griefPrevention, economy);
         this.adminSellManager = new AdminSellManager(this, economy);
         this.recipeGUIManager = new RecipeGUIManager(this);
         this.gMenuListener = new GMenuListener(this);
+        WorldTeleportManager worldTeleportManager = new WorldTeleportManager(this);
 
         Objects.requireNonNull(this.getCommand("sendmoney")).setExecutor(new SendMoneyCommand(this));
         Objects.requireNonNull(this.getCommand("thome")).setExecutor(new ThomeCommand(this));
@@ -89,6 +90,9 @@ public class TsubusabaUtils extends JavaPlugin implements Listener {
         Objects.requireNonNull(this.getCommand("gmenu")).setExecutor(new GMenuCommand(this));
         Objects.requireNonNull(this.getCommand("adminsell")).setExecutor(new AdminSellCommand(this));
         Objects.requireNonNull(this.getCommand("rec")).setExecutor(new RecipeCommand(recipeGUIManager));
+        Objects.requireNonNull(this.getCommand("res")).setExecutor(new WorldTeleportCommand(worldTeleportManager));
+        Objects.requireNonNull(this.getCommand("main")).setExecutor(new WorldTeleportCommand(worldTeleportManager));
+        Objects.requireNonNull(this.getCommand("trap")).setExecutor(new WorldTeleportCommand(worldTeleportManager));
 
         getServer().getPluginManager().registerEvents(this, this);
         getServer().getPluginManager().registerEvents(guiManager, this);
@@ -200,4 +204,5 @@ public class TsubusabaUtils extends JavaPlugin implements Listener {
     public GMenuListener getGMenuListener() {
         return gMenuListener;
     }
+
 }

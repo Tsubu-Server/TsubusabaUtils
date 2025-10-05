@@ -61,7 +61,7 @@ public class GriefPreventionMenuManager implements Listener {
             new FlagDisplay("nomonsterspawns", "敵モブのスポーン防止", Material.ZOMBIE_SPAWN_EGG, 12,
                     List.of(Component.text("土地内での敵モブのスポーンを防ぎます※外で湧いた敵モブは侵入できます").color(NamedTextColor.YELLOW).decoration(TextDecoration.ITALIC, false))),
             new FlagDisplay("nomonsters", "敵モブ防止", Material.BARRIER, 13,
-                    List.of(Component.text("土地内での敵モブのスポーンと侵入を防ぎます").color(NamedTextColor.YELLOW).decoration(TextDecoration.ITALIC, false))),
+                    List.of(Component.text("土地内での敵モブのスポーンと攻撃を防ぎます").color(NamedTextColor.YELLOW).decoration(TextDecoration.ITALIC, false))),
             new FlagDisplay("nocroptrampling", "畑荒らし防止", Material.GOLDEN_HOE, 20,
                     List.of(Component.text("農作物が踏み荒らされるのを防ぎます").color(NamedTextColor.YELLOW).decoration(TextDecoration.ITALIC, false))),
             new FlagDisplay("allowwitherdamage", "ウィザーダメージ許可", Material.WITHER_ROSE, 14,
@@ -79,7 +79,7 @@ public class GriefPreventionMenuManager implements Listener {
             new FlagDisplay("noleafdecay", "葉の自然消滅防止", Material.OAK_LEAVES, 23,
                     List.of(Component.text("葉の自然消滅を防ぎます").color(NamedTextColor.YELLOW).decoration(TextDecoration.ITALIC, false))),
             new FlagDisplay("nosnowform", "雪の生成防止", Material.SNOW_BLOCK, 25,
-                    List.of(Component.text("雪が降らなくなります").color(NamedTextColor.YELLOW).decoration(TextDecoration.ITALIC, false)))
+                    List.of(Component.text("雪がつもらなくなります").color(NamedTextColor.YELLOW).decoration(TextDecoration.ITALIC, false)))
     );
 
     private File claimsFile;
@@ -956,6 +956,12 @@ public class GriefPreventionMenuManager implements Listener {
             lore.add(Component.text("面積: " + df.format(area) + "ブロック")
                     .color(NamedTextColor.AQUA)
                     .decoration(TextDecoration.ITALIC, false));
+
+            String worldName = claim.getLesserBoundaryCorner().getWorld().getName();
+            lore.add(Component.text("ワールド: " + worldName)
+                    .color(NamedTextColor.GREEN)
+                    .decoration(TextDecoration.ITALIC, false));
+
             lore.add(Component.text("座標: X:" + center.getBlockX() + ", Y:" + center.getBlockY() + ", Z:" + center.getBlockZ())
                     .color(NamedTextColor.GREEN)
                     .decoration(TextDecoration.ITALIC, false));
@@ -1426,27 +1432,47 @@ public class GriefPreventionMenuManager implements Listener {
         if (clicked.getType() == Material.GRASS_BLOCK) {
             if (clicked.hasItemMeta() && clicked.getItemMeta().lore() != null) {
                 List<Component> lore = clicked.getItemMeta().lore();
+                String worldName = null;
+                int x = 0, y = 0, z = 0;
+
                 for (Component line : lore) {
                     String loreText = PlainTextComponentSerializer.plainText().serialize(line);
+
+                    if (loreText.startsWith("ワールド: ")) {
+                        worldName = loreText.replace("ワールド: ", "");
+                    }
                     if (loreText.startsWith("座標: ")) {
                         try {
                             String coordText = loreText.replace("座標: ", "");
                             String[] parts = coordText.split(", ");
-
-                            int x = Integer.parseInt(parts[0].replace("X:", ""));
-                            int z = Integer.parseInt(parts[2].replace("Z:", ""));
-
-                            Location teleportLoc = new Location(player.getWorld(), x + 0.5, player.getWorld().getHighestBlockYAt(x, z) + 1, z + 0.5);
-                            player.teleport(teleportLoc);
-                            player.sendMessage(Component.text("土地の中心にテレポートしました！").color(NamedTextColor.GREEN));
-                            player.playSound(player.getLocation(), Sound.ENTITY_ENDERMAN_TELEPORT, 1.0f, 1.0f);
-                            player.closeInventory();
-                            return;
+                            x = Integer.parseInt(parts[0].replace("X:", ""));
+                            y = Integer.parseInt(parts[1].replace("Y:", ""));
+                            z = Integer.parseInt(parts[2].replace("Z:", ""));
                         } catch (Exception e) {
-                            player.sendMessage(Component.text("テレポートに失敗しました！").color(NamedTextColor.RED));
+                            player.sendMessage(Component.text("座標の解析に失敗しました!").color(NamedTextColor.RED));
+                            return;
                         }
-                        break;
                     }
+                }
+                if (worldName != null) {
+                    World targetWorld = Bukkit.getWorld(worldName);
+                    if (targetWorld == null) {
+                        player.sendMessage(Component.text("ワールドが見つかりません!").color(NamedTextColor.RED));
+                        return;
+                    }
+
+                    try {
+                        Location teleportLoc = new Location(targetWorld, x + 0.5, y, z + 0.5);
+                        player.teleport(teleportLoc);
+                        player.sendMessage(Component.text("土地の中心にテレポートしました!").color(NamedTextColor.GREEN));
+                        player.playSound(player.getLocation(), Sound.ENTITY_ENDERMAN_TELEPORT, 1.0f, 1.0f);
+                        player.closeInventory();
+                    } catch (Exception e) {
+                        player.sendMessage(Component.text("テレポートに失敗しました!").color(NamedTextColor.RED));
+                        e.printStackTrace();
+                    }
+                } else {
+                    player.sendMessage(Component.text("ワールド情報が見つかりません!").color(NamedTextColor.RED));
                 }
             }
         }

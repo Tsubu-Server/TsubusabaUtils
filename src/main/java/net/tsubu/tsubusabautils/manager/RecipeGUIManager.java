@@ -56,9 +56,9 @@ public class RecipeGUIManager implements Listener {
         addRecipeItem(34, Material.CROSSBOW, null, null, null, null, null);
 
         addRecipeItem(38, Material.CROSSBOW, "グラップラー", TextColor.color(0xFFD700),
-                List.of(Component.text("完成品"), Component.text("30ブロック先まで移動できるぞ！")), Enchantment.PIERCING, 1);
+                List.of(Component.text("完成品"), Component.text("40ブロック先まで移動できるぞ！")), Enchantment.PIERCING, 1);
         addRecipeItem(42, Material.CROSSBOW, "レジェンドグラップラー", TextColor.color(0xFF5555),
-                List.of(Component.text("完成品"), Component.text("80ブロック先まで移動できるぞ！")), Enchantment.PIERCING, 1);
+                List.of(Component.text("完成品"), Component.text("90ブロック先まで移動できるぞ！")), Enchantment.PIERCING, 1);
 
         addRecipeItem(CLOSE_SLOT, Material.BARRIER, "閉じる", TextColor.color(0xFF5555), null, null, null);
         addRecipeItem(BACK_SLOT, Material.SPECTRAL_ARROW, "メインメニューに戻る", TextColor.color(0xFFD700),null,null,null);

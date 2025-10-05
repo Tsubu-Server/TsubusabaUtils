@@ -23,6 +23,15 @@ commands:
   rec:
     description: Open Recipe GUI
     usage: /rec
+  res:
+    description: テレポート先の resource 系ワールドの前回座標に移動
+    usage: /res
+  main:
+    description: テレポート先の main ワールドの前回座標に移動
+    usage: /main
+  trap:
+    description: テレポート先の trap ワールドの前回座標に移動
+    usage: /trap
 
   adminsell:
     description: Open admin shop buyback GUI
