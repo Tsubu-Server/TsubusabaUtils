@@ -93,6 +93,7 @@ public class TsubusabaUtils extends JavaPlugin implements Listener {
         Objects.requireNonNull(this.getCommand("res")).setExecutor(new WorldTeleportCommand(worldTeleportManager));
         Objects.requireNonNull(this.getCommand("main")).setExecutor(new WorldTeleportCommand(worldTeleportManager));
         Objects.requireNonNull(this.getCommand("trap")).setExecutor(new WorldTeleportCommand(worldTeleportManager));
+        Objects.requireNonNull(this.getCommand("wiki")).setExecutor(new WikiCommand(this));
         Objects.requireNonNull(getCommand("spawn")).setExecutor(new SpawnCommand());
 
         getServer().getPluginManager().registerEvents(this, this);
