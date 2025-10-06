@@ -5,6 +5,7 @@ import com.google.gson.JsonParser;
 import io.papermc.paper.event.player.AsyncChatEvent;
 import net.kyori.adventure.audience.Audience;
 import net.kyori.adventure.text.Component;
+import net.kyori.adventure.text.event.ClickEvent;
 import net.kyori.adventure.text.serializer.plain.PlainTextComponentSerializer;
 import net.kyori.adventure.text.serializer.legacy.LegacyComponentSerializer;
 import net.luckperms.api.LuckPerms;
@@ -23,8 +24,7 @@ import java.net.HttpURLConnection;
 import java.net.URL;
 import java.net.URLEncoder;
 import java.nio.charset.StandardCharsets;
-import java.util.HashMap;
-import java.util.Map;
+import java.util.*;
 import java.util.concurrent.CompletableFuture;
 
 public class ChatManager implements Listener {
@@ -57,10 +57,9 @@ public class ChatManager implements Listener {
     public void onAsyncChat(@NotNull AsyncChatEvent event) {
         String originalText = PlainTextComponentSerializer.plainText().serialize(event.message());
         if (originalText == null || originalText.isEmpty()) return;
-        Component originalMessageComponent = event.message();
 
         if (originalText.matches(".*[\\p{IsHan}\\p{IsHiragana}\\p{IsKatakana}].*")) {
-            Component comp = Component.text(originalText).style(originalMessageComponent.style());
+            Component comp = Component.text(originalText).style(event.message().style());
             event.setCancelled(true);
             sendFinalMessage(event, comp, originalText, false);
             return;
@@ -68,7 +67,7 @@ public class ChatManager implements Listener {
 
         if (originalText.startsWith(".")) {
             String raw = originalText.substring(1);
-            Component comp = Component.text(raw).style(originalMessageComponent.style());
+            Component comp = Component.text(raw).style(event.message().style());
             event.setCancelled(true);
             sendFinalMessage(event, comp, raw, false);
             return;
@@ -76,89 +75,120 @@ public class ChatManager implements Listener {
 
         event.setCancelled(true);
 
-        CompletableFuture.supplyAsync(() -> {
-            try {
-                String dictApplied = applyDictionary(originalText);
-                String converted = convertTextWithWordSplit(dictApplied);
-
-                if (converted == null || converted.isEmpty()) {
-                    return dictApplied + "§§FAIL§§" + originalText;
-                }
-
-                return converted + "§§API§§" + originalText;
-            } catch (Exception e) {
-                return applyDictionary(originalText) + "§§ERR§§" + originalText;
-            }
-        }).thenAccept(result -> {
-            plugin.getServer().getScheduler().runTask(plugin, () -> {
-                String[] parts = result.split("§§(API|ERR|FAIL)§§");
-                String convertedText = parts[0];
-                String original = parts.length > 1 ? parts[1] : originalText;
-
-                Component convertedComponent = Component.text(convertedText)
-                        .hoverEvent(Component.text("原文: " + original));
-
-                sendFinalMessage(event, convertedComponent, original, true);
-            });
-        }).exceptionally(ex -> {
-            plugin.getServer().getScheduler().runTask(plugin, () -> {
-                Component comp = Component.text(originalText).style(originalMessageComponent.style());
-                sendFinalMessage(event, comp, originalText, false);
-            });
-            return null;
-        });
+        CompletableFuture.supplyAsync(() -> processWordWithDictionaryComponent(originalText))
+                .thenAccept(component -> plugin.getServer().getScheduler().runTask(plugin, () -> {
+                    Component finalComponent = component.hoverEvent(Component.text("原文: " + originalText));
+                    sendFinalMessage(event, finalComponent, originalText, true);
+                }))
+                .exceptionally(ex -> {
+                    plugin.getServer().getScheduler().runTask(plugin, () -> {
+                        Component comp = Component.text(originalText).style(event.message().style());
+                        sendFinalMessage(event, comp, originalText, false);
+                    });
+                    return null;
+                });
     }
 
     /**
-     * 辞書適用（部分一致すべて置換）
+     * 辞書 + API 変換を通した Component 生成
      */
-    private String applyDictionary(String text) {
-        String result = text;
-        for (Map.Entry<String, String> entry : customDictionary.entrySet()) {
-            result = result.replace(entry.getKey(), entry.getValue());
-        }
-        return result;
-    }
-
-    /**
-     * テキストを単語ごとに分割して変換（カンマ、スペースなどを保持）
-     */
-    private String convertTextWithWordSplit(String text) {
-        StringBuilder result = new StringBuilder();
+    private Component processWordWithDictionaryComponent(String text) {
+        text = text.replace("~", "～");
+        StringBuilder buffer = new StringBuilder();
+        List<Component> components = new ArrayList<>();
         StringBuilder currentWord = new StringBuilder();
 
         for (int i = 0; i < text.length(); i++) {
             char c = text.charAt(i);
-            if (Character.isLetterOrDigit(c)) {
+
+            if (Character.isLetterOrDigit(c) || c == '-') {
                 currentWord.append(c);
             } else {
                 if (currentWord.length() > 0) {
-                    String word = currentWord.toString();
-                    String converted = convertWithGoogleInputTools(word);
-                    result.append(converted != null ? converted : word);
+                    components.add(processSingleWordComponent(currentWord.toString()));
                     currentWord.setLength(0);
                 }
-                if (c == ',') {
-                    result.append('、');
-                } else {
-                    result.append(c);
-                }
+
+                if (c == ',') components.add(Component.text('、'));
+                else components.add(Component.text(c));
             }
         }
 
         if (currentWord.length() > 0) {
-            String word = currentWord.toString();
-            String converted = convertWithGoogleInputTools(word);
-            result.append(converted != null ? converted : word);
+            components.add(processSingleWordComponent(currentWord.toString()));
         }
 
-        return result.toString();
+        Component result = Component.empty();
+        for (Component comp : components) result = result.append(comp);
+        return result;
+    }
+
+    /**
+     * 単語単位で辞書 or API を確認し Component を返す
+     */
+    private Component processSingleWordComponent(String word) {
+        for (Map.Entry<String, String> entry : customDictionary.entrySet()) {
+            String key = entry.getKey();
+            if (word.contains(key)) {
+                int index = word.indexOf(key);
+                Component before = index > 0 ? processSingleWordComponent(word.substring(0, index)) : Component.empty();
+                Component after = (index + key.length() < word.length()) ?
+                        processSingleWordComponent(word.substring(index + key.length())) : Component.empty();
+
+                String value = entry.getValue();
+                Component main;
+                if (value.startsWith("http://") || value.startsWith("https://")) {
+                    main = Component.text(value)
+                            .clickEvent(ClickEvent.openUrl(value))
+                            .hoverEvent(Component.text("クリックで開く: " + value));
+                } else {
+                    main = Component.text(value);
+                }
+
+                return Component.empty().append(before).append(main).append(after);
+            }
+        }
+
+        if (word.matches("^[A-Z0-9\\-]+$")) return Component.text(word);
+
+        String base = word.replace("-", "");
+        String converted = convertWithGoogleInputTools(base);
+        if (converted == null || converted.isEmpty()) converted = word.replace("-", "ー");
+
+        if (word.contains("-")) {
+            List<Integer> hyphenPositions = new ArrayList<>();
+            int countLetters = 0;
+            for (char c : word.toCharArray()) {
+                if (c == '-') hyphenPositions.add(countLetters);
+                else countLetters++;
+            }
+
+            StringBuilder sb = new StringBuilder(converted);
+            int convertedLen = converted.length();
+            int inserted = 0;
+
+            for (Integer lettersBeforeHyphen : hyphenPositions) {
+                int baseLen = Math.max(1, base.length());
+                int kanaIndex = (int) Math.round(((double) lettersBeforeHyphen / baseLen) * convertedLen);
+                int insertAt = kanaIndex + inserted;
+                if (insertAt < 0) insertAt = 0;
+                if (insertAt > sb.length()) insertAt = sb.length();
+
+                if (!(insertAt > 0 && sb.charAt(insertAt - 1) == 'ー') &&
+                        !(insertAt < sb.length() && sb.charAt(insertAt) == 'ー')) {
+                    sb.insert(insertAt, 'ー');
+                    inserted++;
+                }
+            }
+            converted = sb.toString();
+        }
+
+        return Component.text(converted);
     }
 
     private void sendFinalMessage(@NotNull AsyncChatEvent event, @NotNull Component messageComponent,
                                   @NotNull String plainText, boolean wasConverted) {
         event.setCancelled(true);
-
         Player sender = event.getPlayer();
         Component displayName = getPlayerDisplayName(sender);
 
@@ -166,7 +196,6 @@ public class ChatManager implements Listener {
             Component rendered = event.renderer().render(sender, displayName, messageComponent, audience);
             audience.sendMessage(rendered);
         }
-
     }
 
     private Component getPlayerDisplayName(@NotNull Player player) {
@@ -178,7 +207,6 @@ public class ChatManager implements Listener {
                 if (lpUser != null) {
                     String prefix = lpUser.getCachedData().getMetaData().getPrefix();
                     String suffix = lpUser.getCachedData().getMetaData().getSuffix();
-
                     Component prefixComponent = prefix != null ? LEGACY_SERIALIZER.deserialize(prefix) : Component.empty();
                     Component suffixComponent = suffix != null ? LEGACY_SERIALIZER.deserialize(suffix) : Component.empty();
                     return prefixComponent.append(nameComponent).append(suffixComponent);
@@ -193,57 +221,36 @@ public class ChatManager implements Listener {
         try {
             String encodedText = URLEncoder.encode(text, StandardCharsets.UTF_8);
             URL url = new URL(GOOGLE_INPUTTOOLS_API + encodedText);
-
             connection = (HttpURLConnection) url.openConnection();
             connection.setRequestMethod("GET");
             connection.setConnectTimeout(5000);
             connection.setReadTimeout(5000);
             connection.setRequestProperty("User-Agent", "Mozilla/5.0");
 
-            int responseCode = connection.getResponseCode();
-            if (responseCode != 200) {
-                return null;
-            }
+            if (connection.getResponseCode() != 200) return null;
 
             StringBuilder response = new StringBuilder();
             try (BufferedReader reader = new BufferedReader(
                     new InputStreamReader(connection.getInputStream(), StandardCharsets.UTF_8))) {
                 String line;
-                while ((line = reader.readLine()) != null) {
-                    response.append(line);
-                }
+                while ((line = reader.readLine()) != null) response.append(line);
             }
 
             String respStr = response.toString();
-
-            if (!respStr.startsWith("[") || !respStr.endsWith("]")) {
-                return null;
-            }
+            if (!respStr.startsWith("[") || !respStr.endsWith("]")) return null;
 
             JsonArray jsonArray = JsonParser.parseString(respStr).getAsJsonArray();
-            if (jsonArray.size() < 2) {
-                return null;
-            }
-
-            String status = jsonArray.get(0).getAsString();
-            if (!"SUCCESS".equals(status)) {
-                return null;
-            }
+            if (jsonArray.size() < 2) return null;
+            if (!"SUCCESS".equals(jsonArray.get(0).getAsString())) return null;
 
             JsonArray resultArray = jsonArray.get(1).getAsJsonArray();
-            if (resultArray.size() == 0) {
-                return null;
-            }
+            if (resultArray.size() == 0) return null;
 
             JsonArray firstCandidateArray = resultArray.get(0).getAsJsonArray();
-            if (firstCandidateArray.size() < 2) {
-                return null;
-            }
+            if (firstCandidateArray.size() < 2) return null;
 
             JsonArray candidates = firstCandidateArray.get(1).getAsJsonArray();
-            if (candidates.size() == 0) {
-                return null;
-            }
+            if (candidates.size() == 0) return null;
 
             return candidates.get(0).getAsString();
 

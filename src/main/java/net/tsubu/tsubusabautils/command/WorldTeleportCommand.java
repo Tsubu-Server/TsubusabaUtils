@@ -25,46 +25,35 @@ public class WorldTeleportCommand implements CommandExecutor {
         }
 
         String cmd = label.toLowerCase();
-        Location targetLoc = null;
-        String targetWorldName = null;
-        World targetWorld = null;
-        String worldPrefix = null;
-
+        String targetWorldName;
         switch (cmd) {
-            case "res":
-                worldPrefix = "resource";
-                break;
-            case "main":
-                worldPrefix = "world";
-                break;
-            case "trap":
-                worldPrefix = "trap";
-                break;
-        }
-
-        targetLoc = manager.getLastLocationByPrefix(player, worldPrefix);
-
-        if (targetLoc != null) {
-            targetWorldName = targetLoc.getWorld().getName();
-            targetWorld = Bukkit.getWorld(targetLoc.getWorld().getName());
-        } else {
-            for (World world : Bukkit.getWorlds()) {
-                if (world.getName().toLowerCase().startsWith(worldPrefix)) {
-                    targetWorld = world;
-                    targetLoc = world.getSpawnLocation();
-                    targetWorldName = world.getName();
-                    break;
-                }
+            case "res" -> targetWorldName = "resource";
+            case "main" -> targetWorldName = "world";
+            case "trap" -> targetWorldName = "trap";
+            default -> {
+                player.sendMessage("§c不明なコマンドです。");
+                return true;
             }
         }
 
-        if (targetLoc != null && targetWorld != null) {
-            targetLoc.setWorld(targetWorld);
-            player.teleport(targetLoc);
-            player.sendMessage("§a" + targetWorldName + " に移動しました！");
-        } else {
-            player.sendMessage("§cワールドが存在しません。");
+        Location lastLoc = manager.getLastLocationByPrefix(player, targetWorldName);
+        World targetWorld = Bukkit.getWorld(targetWorldName);
+
+        if (targetWorld == null) {
+            player.sendMessage("§cワールド '" + targetWorldName + "' が存在しません。");
+            return true;
         }
+
+        Location targetLoc;
+
+        if (lastLoc != null && lastLoc.getWorld() != null && lastLoc.getWorld().getName().toLowerCase().startsWith(targetWorldName.toLowerCase())) {
+            targetLoc = lastLoc;
+        } else {
+            targetLoc = targetWorld.getSpawnLocation();
+        }
+
+        player.teleport(targetLoc);
+        player.sendMessage("§a" + targetWorldName + " に移動しました！");
 
         return true;
     }

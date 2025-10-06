@@ -169,13 +169,6 @@ public class WorldTeleportManager implements Listener {
         }
     }
 
-    public Location getLastLocation(Player player, String worldName) {
-        Map<String, LastLocation> map = lastLocations.get(player.getUniqueId());
-        if (map == null) return null;
-        LastLocation last = map.get(worldName);
-        return last != null ? last.getLocation() : null;
-    }
-
     public Location getLastLocationByPrefix(Player player, String prefix) {
         Map<String, LastLocation> map = lastLocations.get(player.getUniqueId());
         if (map == null) return null;
