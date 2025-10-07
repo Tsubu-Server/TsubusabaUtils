@@ -52,9 +52,9 @@ public class GriefPreventionMenuManager implements Listener {
     private final double sellRate;
 
     private final List<FlagDisplay> flagsToShow = List.of(
-            new FlagDisplay("noexplosiondamage", "ツタの成長防止", Material.VINE, 24,
+            new FlagDisplay("novinegrowth", "ツタの成長防止", Material.VINE, 24,
                     List.of(Component.text("ツタ系の成長を防ぎます").color(NamedTextColor.YELLOW).decoration(TextDecoration.ITALIC, false))),
-            new FlagDisplay("allowpvp", "PvP", Material.IRON_SWORD, 10,
+            new FlagDisplay("allowpvp", "PvP", Material.IRON_SWORD, 14,
                     List.of(Component.text("PvPの許可を設定できます").color(NamedTextColor.YELLOW).decoration(TextDecoration.ITALIC, false))),
             new FlagDisplay("nomobspawns", "モブのスポーン防止", Material.COW_SPAWN_EGG, 11,
                     List.of(Component.text("土地内でのモブのスポーンを防ぎます").color(NamedTextColor.YELLOW).decoration(TextDecoration.ITALIC, false))),
@@ -64,8 +64,8 @@ public class GriefPreventionMenuManager implements Listener {
                     List.of(Component.text("土地内での敵モブのスポーンと攻撃を防ぎます").color(NamedTextColor.YELLOW).decoration(TextDecoration.ITALIC, false))),
             new FlagDisplay("nocroptrampling", "畑荒らし防止", Material.GOLDEN_HOE, 20,
                     List.of(Component.text("農作物が踏み荒らされるのを防ぎます").color(NamedTextColor.YELLOW).decoration(TextDecoration.ITALIC, false))),
-            new FlagDisplay("allowwitherdamage", "ウィザーダメージ許可", Material.WITHER_ROSE, 14,
-                    List.of(Component.text("ウィザーによるダメージの許可を設定できます").color(NamedTextColor.YELLOW).decoration(TextDecoration.ITALIC, false))),
+            new FlagDisplay("noexplosiondamage", "爆発防止", Material.WITHER_ROSE, 10,
+                    List.of(Component.text("クリーパーやTNTの爆発を防ぎます").color(NamedTextColor.YELLOW).decoration(TextDecoration.ITALIC, false))),
             new FlagDisplay("nofiredamage", "火のブロックダメージ防止", Material.FLINT_AND_STEEL, 15,
                     List.of(Component.text("火によるブロックへのダメージを防ぎます").color(NamedTextColor.YELLOW).decoration(TextDecoration.ITALIC, false))),
             new FlagDisplay("nofirespread", "火の延焼防止", Material.LAVA_BUCKET, 16,
