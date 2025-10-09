@@ -20,8 +20,7 @@ public class WorldTeleportManager implements Listener {
 
     private final Map<UUID, Map<String, LastLocation>> lastLocations = new HashMap<>();
     private final JavaPlugin plugin;
-    private Connection connection;
-    private boolean databaseEnabled;
+    private final DatabaseManager databaseManager;
 
     private static class LastLocation {
         private final Location location;
@@ -41,37 +40,14 @@ public class WorldTeleportManager implements Listener {
         }
     }
 
-    public WorldTeleportManager(JavaPlugin plugin) {
+    public WorldTeleportManager(JavaPlugin plugin, DatabaseManager databaseManager) {
         this.plugin = plugin;
+        this.databaseManager = databaseManager;
+
         Bukkit.getPluginManager().registerEvents(this, plugin);
-        loadConfig();
-        if (databaseEnabled) {
-            setupDatabase();
-            loadAllLocations();
-        }
-    }
 
-    private void loadConfig() {
-        plugin.saveDefaultConfig();
-        plugin.reloadConfig();
-        databaseEnabled = plugin.getConfig().getBoolean("database.enabled", false);
-    }
-
-    private void setupDatabase() {
-        String host = plugin.getConfig().getString("database.host");
-        int port = plugin.getConfig().getInt("database.port");
-        String dbName = plugin.getConfig().getString("database.database");
-        String user = plugin.getConfig().getString("database.user");
-        String password = plugin.getConfig().getString("database.password");
-
-        try {
-            Class.forName("org.mariadb.jdbc.Driver");
-
-            connection = DriverManager.getConnection(
-                    "jdbc:mariadb://" + host + ":" + port + "/" + dbName,
-                    user,
-                    password
-            );
+        // データベースが有効ならテーブルを作成
+        if (databaseManager.isEnabled()) {
             String sql = """
                 CREATE TABLE IF NOT EXISTS player_last_locations (
                     uuid CHAR(36) NOT NULL,
@@ -84,24 +60,19 @@ public class WorldTeleportManager implements Listener {
                     updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
                     PRIMARY KEY (uuid, world)
                 );
-                """;
-            try (Statement stmt = connection.createStatement()) {
-                stmt.executeUpdate(sql);
-            }
-        } catch (ClassNotFoundException e) {
-            plugin.getLogger().severe("MariaDBドライバーが見つかりません。JARファイルにドライバーが含まれているか確認してください。");
-            databaseEnabled = false;
-        } catch (SQLException e) {
-            plugin.getLogger().severe("MariaDB接続に失敗しました: " + e.getMessage());
-            databaseEnabled = false;
+            """;
+            databaseManager.createTable(sql);
+            loadAllLocations();
         }
     }
 
     private void loadAllLocations() {
-        if (!databaseEnabled) return;
+        if (!databaseManager.isEnabled()) return;
         String sql = "SELECT * FROM player_last_locations";
-        try (Statement stmt = connection.createStatement();
+
+        try (Statement stmt = databaseManager.getConnection().createStatement();
              ResultSet rs = stmt.executeQuery(sql)) {
+
             while (rs.next()) {
                 UUID uuid = UUID.fromString(rs.getString("uuid"));
                 String world = rs.getString("world");
@@ -125,9 +96,10 @@ public class WorldTeleportManager implements Listener {
     }
 
     private void saveLocationToDatabase(Player player, String worldName, Location loc) {
-        if (!databaseEnabled) return;
+        if (!databaseManager.isEnabled()) return;
         String sql = "REPLACE INTO player_last_locations (uuid, world, x, y, z, yaw, pitch) VALUES (?, ?, ?, ?, ?, ?, ?)";
-        try (PreparedStatement stmt = connection.prepareStatement(sql)) {
+
+        try (PreparedStatement stmt = databaseManager.getConnection().prepareStatement(sql)) {
             stmt.setString(1, player.getUniqueId().toString());
             stmt.setString(2, worldName);
             stmt.setDouble(3, loc.getX());

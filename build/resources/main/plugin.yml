@@ -26,6 +26,7 @@ commands:
   res:
     description: テレポート先の resource 系ワールドの前回座標に移動
     usage: /res
+    aliases: resource
   main:
     description: テレポート先の main ワールドの前回座標に移動
     usage: /main

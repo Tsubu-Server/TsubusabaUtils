@@ -38,6 +38,8 @@ public class TsubusabaUtils extends JavaPlugin implements Listener {
     private SidebarManager sidebarManager;
     private RecipeGUIManager recipeGUIManager;
     private GMenuListener gMenuListener;
+    private HalloweenManager halloweenManager;
+    private DatabaseManager databaseManager;
 
     @Override
     public void onEnable() {
@@ -82,7 +84,19 @@ public class TsubusabaUtils extends JavaPlugin implements Listener {
         this.adminSellManager = new AdminSellManager(this, economy);
         this.recipeGUIManager = new RecipeGUIManager(this);
         this.gMenuListener = new GMenuListener(this);
-        WorldTeleportManager worldTeleportManager = new WorldTeleportManager(this);
+        databaseManager = new DatabaseManager(this);
+        databaseManager = new DatabaseManager(this);
+        if (getConfig().getBoolean("halloween.enabled", false)) {
+            if (halloweenManager == null) {
+                halloweenManager = new HalloweenManager(this, databaseManager);
+                halloweenManager.registerRecipes();
+                getServer().getPluginManager().registerEvents(halloweenManager, this);
+                getLogger().info("Halloween features enabled!");
+            }
+        } else {
+            getLogger().info("Halloween features are disabled in config.");
+        }
+        WorldTeleportManager worldTeleportManager = new WorldTeleportManager(this,databaseManager);
 
         Objects.requireNonNull(this.getCommand("sendmoney")).setExecutor(new SendMoneyCommand(this));
         Objects.requireNonNull(this.getCommand("thome")).setExecutor(new ThomeCommand(this));
@@ -130,6 +144,9 @@ public class TsubusabaUtils extends JavaPlugin implements Listener {
 
     @Override
     public void onDisable() {
+        if (databaseManager != null) {
+            databaseManager.closeConnection();
+        }
         getLogger().info("TsubusabaUtilsを無効化しました。");
     }
 
@@ -207,4 +224,7 @@ public class TsubusabaUtils extends JavaPlugin implements Listener {
         return gMenuListener;
     }
 
+    public DatabaseManager getDatabaseManager() {
+        return databaseManager;
+    }
 }

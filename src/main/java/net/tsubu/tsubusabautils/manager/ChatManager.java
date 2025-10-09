@@ -151,37 +151,8 @@ public class ChatManager implements Listener {
 
         if (word.matches("^[A-Z0-9\\-]+$")) return Component.text(word);
 
-        String base = word.replace("-", "");
-        String converted = convertWithGoogleInputTools(base);
-        if (converted == null || converted.isEmpty()) converted = word.replace("-", "ー");
-
-        if (word.contains("-")) {
-            List<Integer> hyphenPositions = new ArrayList<>();
-            int countLetters = 0;
-            for (char c : word.toCharArray()) {
-                if (c == '-') hyphenPositions.add(countLetters);
-                else countLetters++;
-            }
-
-            StringBuilder sb = new StringBuilder(converted);
-            int convertedLen = converted.length();
-            int inserted = 0;
-
-            for (Integer lettersBeforeHyphen : hyphenPositions) {
-                int baseLen = Math.max(1, base.length());
-                int kanaIndex = (int) Math.round(((double) lettersBeforeHyphen / baseLen) * convertedLen);
-                int insertAt = kanaIndex + inserted;
-                if (insertAt < 0) insertAt = 0;
-                if (insertAt > sb.length()) insertAt = sb.length();
-
-                if (!(insertAt > 0 && sb.charAt(insertAt - 1) == 'ー') &&
-                        !(insertAt < sb.length() && sb.charAt(insertAt) == 'ー')) {
-                    sb.insert(insertAt, 'ー');
-                    inserted++;
-                }
-            }
-            converted = sb.toString();
-        }
+        String converted = convertWithGoogleInputTools(word);
+        if (converted == null || converted.isEmpty()) converted = word;
 
         return Component.text(converted);
     }
@@ -227,7 +198,7 @@ public class ChatManager implements Listener {
             connection.setReadTimeout(5000);
             connection.setRequestProperty("User-Agent", "Mozilla/5.0");
 
-            if (connection.getResponseCode() != 200) return null;
+            if (connection.getResponseCode() != 200) return text;
 
             StringBuilder response = new StringBuilder();
             try (BufferedReader reader = new BufferedReader(
@@ -237,25 +208,25 @@ public class ChatManager implements Listener {
             }
 
             String respStr = response.toString();
-            if (!respStr.startsWith("[") || !respStr.endsWith("]")) return null;
+            if (!respStr.startsWith("[") || !respStr.endsWith("]")) return text;
 
             JsonArray jsonArray = JsonParser.parseString(respStr).getAsJsonArray();
-            if (jsonArray.size() < 2) return null;
-            if (!"SUCCESS".equals(jsonArray.get(0).getAsString())) return null;
+            if (jsonArray.size() < 2) return text;
+            if (!"SUCCESS".equals(jsonArray.get(0).getAsString())) return text;
 
             JsonArray resultArray = jsonArray.get(1).getAsJsonArray();
-            if (resultArray.size() == 0) return null;
+            if (resultArray.size() == 0) return text;
 
             JsonArray firstCandidateArray = resultArray.get(0).getAsJsonArray();
-            if (firstCandidateArray.size() < 2) return null;
+            if (firstCandidateArray.size() < 2) return text;
 
             JsonArray candidates = firstCandidateArray.get(1).getAsJsonArray();
-            if (candidates.size() == 0) return null;
+            if (candidates.size() == 0) return text;
 
             return candidates.get(0).getAsString();
 
         } catch (Exception e) {
-            return null;
+            return text;
         } finally {
             if (connection != null) connection.disconnect();
         }
