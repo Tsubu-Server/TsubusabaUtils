@@ -40,6 +40,7 @@ public class TsubusabaUtils extends JavaPlugin implements Listener {
     private GMenuListener gMenuListener;
     private HalloweenManager halloweenManager;
     private DatabaseManager databaseManager;
+    private ChatSyncManager chatSyncManager;
 
     @Override
     public void onEnable() {
@@ -86,6 +87,7 @@ public class TsubusabaUtils extends JavaPlugin implements Listener {
         this.gMenuListener = new GMenuListener(this);
         databaseManager = new DatabaseManager(this);
         databaseManager = new DatabaseManager(this);
+        chatSyncManager = new ChatSyncManager(this);
         if (getConfig().getBoolean("halloween.enabled", false)) {
             if (halloweenManager == null) {
                 halloweenManager = new HalloweenManager(this, databaseManager);
@@ -123,6 +125,7 @@ public class TsubusabaUtils extends JavaPlugin implements Listener {
         getServer().getPluginManager().registerEvents(new JobLevelListener(this, sidebarManager), this);
         getServer().getPluginManager().registerEvents(new JobLeaveListener(this, sidebarManager), this);
         getServer().getPluginManager().registerEvents(new SetHomeListener(this, essentials), this);
+        getServer().getPluginManager().registerEvents(chatSyncManager, this);
 
         getLogger().info("TsubusabaUtilsが有効になりました。");
 
@@ -145,6 +148,9 @@ public class TsubusabaUtils extends JavaPlugin implements Listener {
     public void onDisable() {
         if (databaseManager != null) {
             databaseManager.closeConnection();
+        }
+        if (chatSyncManager != null) {
+            chatSyncManager.disable();
         }
         getLogger().info("TsubusabaUtilsを無効化しました。");
     }
