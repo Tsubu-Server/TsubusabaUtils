@@ -64,7 +64,7 @@ public class GriefPreventionMenuManager implements Listener {
                     List.of(Component.text("土地内での敵モブのスポーンと攻撃を防ぎます").color(NamedTextColor.YELLOW).decoration(TextDecoration.ITALIC, false))),
             new FlagDisplay("nocroptrampling", "畑荒らし防止", Material.GOLDEN_HOE, 20,
                     List.of(Component.text("農作物が踏み荒らされるのを防ぎます").color(NamedTextColor.YELLOW).decoration(TextDecoration.ITALIC, false))),
-            new FlagDisplay("noexplosiondamage", "爆発防止", Material.WITHER_ROSE, 10,
+            new FlagDisplay("noexplosiondamage", "爆発防止", Material.TNT, 10,
                     List.of(Component.text("クリーパーやTNTの爆発を防ぎます").color(NamedTextColor.YELLOW).decoration(TextDecoration.ITALIC, false))),
             new FlagDisplay("nofiredamage", "火のブロックダメージ防止", Material.FLINT_AND_STEEL, 15,
                     List.of(Component.text("火によるブロックへのダメージを防ぎます").color(NamedTextColor.YELLOW).decoration(TextDecoration.ITALIC, false))),

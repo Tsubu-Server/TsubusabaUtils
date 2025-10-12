@@ -156,4 +156,8 @@ public class WorldTeleportManager implements Listener {
         }
         return last != null ? last.getLocation() : null;
     }
+
+    public JavaPlugin getPlugin() {
+        return plugin;
+    }
 }

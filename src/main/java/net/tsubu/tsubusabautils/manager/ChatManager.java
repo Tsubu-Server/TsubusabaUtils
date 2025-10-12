@@ -3,16 +3,13 @@ package net.tsubu.tsubusabautils.manager;
 import com.google.gson.JsonArray;
 import com.google.gson.JsonParser;
 import io.papermc.paper.event.player.AsyncChatEvent;
-import net.kyori.adventure.audience.Audience;
 import net.kyori.adventure.text.Component;
 import net.kyori.adventure.text.event.ClickEvent;
 import net.kyori.adventure.text.serializer.plain.PlainTextComponentSerializer;
 import net.kyori.adventure.text.serializer.legacy.LegacyComponentSerializer;
 import net.luckperms.api.LuckPerms;
-import net.luckperms.api.model.user.User;
 import net.tsubu.tsubusabautils.TsubusabaUtils;
 import org.bukkit.configuration.file.FileConfiguration;
-import org.bukkit.entity.Player;
 import org.bukkit.event.EventHandler;
 import org.bukkit.event.EventPriority;
 import org.bukkit.event.Listener;
@@ -25,7 +22,6 @@ import java.net.URL;
 import java.net.URLEncoder;
 import java.nio.charset.StandardCharsets;
 import java.util.*;
-import java.util.concurrent.CompletableFuture;
 
 public class ChatManager implements Listener {
 
@@ -59,42 +55,25 @@ public class ChatManager implements Listener {
         if (originalText == null || originalText.isEmpty()) return;
 
         if (originalText.matches(".*[\\p{IsHan}\\p{IsHiragana}\\p{IsKatakana}].*")) {
-            Component comp = Component.text(originalText).style(event.message().style());
-            event.setCancelled(true);
-            sendFinalMessage(event, comp, originalText, false);
             return;
         }
-
         if (originalText.startsWith(".")) {
             String raw = originalText.substring(1);
             Component comp = Component.text(raw).style(event.message().style());
-            event.setCancelled(true);
-            sendFinalMessage(event, comp, raw, false);
+            event.message(comp);
             return;
         }
 
-        event.setCancelled(true);
-
-        CompletableFuture.supplyAsync(() -> processWordWithDictionaryComponent(originalText))
-                .thenAccept(component -> plugin.getServer().getScheduler().runTask(plugin, () -> {
-                    Component finalComponent = component.hoverEvent(Component.text("原文: " + originalText));
-                    sendFinalMessage(event, finalComponent, originalText, true);
-                }))
-                .exceptionally(ex -> {
-                    plugin.getServer().getScheduler().runTask(plugin, () -> {
-                        Component comp = Component.text(originalText).style(event.message().style());
-                        sendFinalMessage(event, comp, originalText, false);
-                    });
-                    return null;
-                });
+        Component converted = processWordWithDictionaryComponent(originalText);
+        Component finalComponent = converted.hoverEvent(Component.text("原文: " + originalText));
+        event.message(finalComponent);
     }
 
     /**
-     * 辞書 + API 変換を通した Component 生成
+     * 辞書 + API変換を通した Component 生成
      */
     private Component processWordWithDictionaryComponent(String text) {
-        text = text.replace("~", "～");
-        StringBuilder buffer = new StringBuilder();
+        text = text.replace("~", "〜");
         List<Component> components = new ArrayList<>();
         StringBuilder currentWord = new StringBuilder();
 
@@ -150,41 +129,10 @@ public class ChatManager implements Listener {
         }
 
         if (word.matches("^[A-Z0-9\\-]+$")) return Component.text(word);
-
         String converted = convertWithGoogleInputTools(word);
         if (converted == null || converted.isEmpty()) converted = word;
 
         return Component.text(converted);
-    }
-
-    private void sendFinalMessage(@NotNull AsyncChatEvent event, @NotNull Component messageComponent,
-                                  @NotNull String plainText, boolean wasConverted) {
-        event.setCancelled(true);
-        Player sender = event.getPlayer();
-        Component displayName = getPlayerDisplayName(sender);
-
-        for (Audience audience : event.viewers()) {
-            Component rendered = event.renderer().render(sender, displayName, messageComponent, audience);
-            audience.sendMessage(rendered);
-        }
-    }
-
-    private Component getPlayerDisplayName(@NotNull Player player) {
-        Component nameComponent = Component.text(player.getName());
-
-        if (luckPerms != null) {
-            try {
-                User lpUser = luckPerms.getPlayerAdapter(Player.class).getUser(player);
-                if (lpUser != null) {
-                    String prefix = lpUser.getCachedData().getMetaData().getPrefix();
-                    String suffix = lpUser.getCachedData().getMetaData().getSuffix();
-                    Component prefixComponent = prefix != null ? LEGACY_SERIALIZER.deserialize(prefix) : Component.empty();
-                    Component suffixComponent = suffix != null ? LEGACY_SERIALIZER.deserialize(suffix) : Component.empty();
-                    return prefixComponent.append(nameComponent).append(suffixComponent);
-                }
-            } catch (Exception ignored) {}
-        }
-        return nameComponent;
     }
 
     private String convertWithGoogleInputTools(String text) {
@@ -226,6 +174,7 @@ public class ChatManager implements Listener {
             return candidates.get(0).getAsString();
 
         } catch (Exception e) {
+            plugin.getLogger().warning("Failed to convert with Google Input Tools: " + e.getMessage());
             return text;
         } finally {
             if (connection != null) connection.disconnect();

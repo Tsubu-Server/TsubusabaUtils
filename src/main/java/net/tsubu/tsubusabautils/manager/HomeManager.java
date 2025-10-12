@@ -66,10 +66,25 @@ public class HomeManager {
         }
 
         net.luckperms.api.model.user.User lpUser = luckPerms.getPlayerAdapter(Player.class).getUser(player);
+
         if (lpUser.getNodes().stream().anyMatch(node -> node instanceof InheritanceNode && ((InheritanceNode) node).getGroupName().equalsIgnoreCase(luckPermsGroup))) {
             player.sendMessage("§cすでにこのホーム上限は購入済みです！");
-            player.playSound(player.getLocation(), Sound.ENTITY_VILLAGER_NO,1f,1f);
+            player.playSound(player.getLocation(), Sound.ENTITY_VILLAGER_NO, 1f, 1f);
             return false;
+        }
+
+        if (group.equals("home-upgrade-2")) {
+            String prerequisiteGroup = luckPermsGroups.get("home-upgrade-1");
+            boolean hasPrerequisite = lpUser.getNodes().stream()
+                    .anyMatch(node -> node instanceof InheritanceNode &&
+                            ((InheritanceNode) node).getGroupName().equalsIgnoreCase(prerequisiteGroup));
+
+            if (!hasPrerequisite) {
+                String prerequisiteDisplayName = groupDisplayNames.getOrDefault("home-upgrade-1", "ホーム上限10");
+                player.sendMessage("§c「" + prerequisiteDisplayName + "」を先に購入する必要があります！");
+                player.playSound(player.getLocation(), Sound.ENTITY_VILLAGER_NO, 1f, 1f);
+                return false;
+            }
         }
 
         if (econ.has(player, price)) {
@@ -80,11 +95,11 @@ public class HomeManager {
             luckPerms.getUserManager().saveUser(lpUser);
 
             player.sendMessage("§aホーム上限 \"§e" + displayName + "§a\" を購入しました！");
-            player.playSound(player.getLocation(), Sound.ENTITY_PLAYER_LEVELUP,1f,1f);
+            player.playSound(player.getLocation(), Sound.ENTITY_PLAYER_LEVELUP, 1f, 1f);
             return true;
         } else {
             player.sendMessage("§cお金が足りません！ (必要: §e" + price + "§c)");
-            player.playSound(player.getLocation(), Sound.ENTITY_VILLAGER_NO,1f,1f);
+            player.playSound(player.getLocation(), Sound.ENTITY_VILLAGER_NO, 1f, 1f);
             return false;
         }
     }

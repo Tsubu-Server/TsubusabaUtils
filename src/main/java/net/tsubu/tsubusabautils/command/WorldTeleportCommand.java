@@ -53,8 +53,17 @@ public class WorldTeleportCommand implements CommandExecutor {
             targetLoc = targetWorld.getSpawnLocation();
         }
 
-        player.teleport(targetLoc);
-        player.sendMessage("§a" + targetWorldName + " に移動しました！");
+        player.sendMessage("§7転送準備中...");
+
+        Bukkit.getScheduler().runTaskLater(manager.getPlugin(), () -> {
+            player.teleportAsync(targetLoc).thenRun(() -> {
+                player.sendMessage("§a" + targetWorldName + " に移動しました！");
+            }).exceptionally(ex -> {
+                player.sendMessage("§c転送に失敗しました。");
+                manager.getPlugin().getLogger().warning("Teleport failed for " + player.getName() + ": " + ex.getMessage());
+                return null;
+            });
+        }, 30L);
 
         return true;
     }
