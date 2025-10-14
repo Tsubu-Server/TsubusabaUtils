@@ -2,10 +2,7 @@ package net.tsubu.tsubusabautils;
 
 import net.milkbowl.vault.economy.Economy;
 import net.tsubu.tsubusabautils.command.*;
-import net.tsubu.tsubusabautils.listener.JobJoinListener;
-import net.tsubu.tsubusabautils.listener.JobLeaveListener;
-import net.tsubu.tsubusabautils.listener.JobLevelListener;
-import net.tsubu.tsubusabautils.listener.SetHomeListener;
+import net.tsubu.tsubusabautils.listener.*;
 import net.tsubu.tsubusabautils.manager.*;
 import org.bukkit.Bukkit;
 import org.bukkit.Location;
@@ -40,6 +37,10 @@ public class TsubusabaUtils extends JavaPlugin implements Listener {
     private static TsubusabaUtils instance;
     private SidebarManager sidebarManager;
     private RecipeGUIManager recipeGUIManager;
+    private GMenuListener gMenuListener;
+    private HalloweenManager halloweenManager;
+    private DatabaseManager databaseManager;
+    private ChatSyncManager chatSyncManager;
 
     @Override
     public void onEnable() {
@@ -78,18 +79,37 @@ public class TsubusabaUtils extends JavaPlugin implements Listener {
         this.homeGUIManager = new HomeGUIManager(this, homeManager);
         this.guiManager = new GUIManager(this);
         this.amountGUIManager = new AmountGUIManager(this);
-        this.chatManager = new ChatManager(this);
+        this.chatManager = new ChatManager(this, luckPerms);
         this.invincibilityManager = new InvincibilityManager();
         this.griefPreventionMenuManager = new GriefPreventionMenuManager(this, griefPrevention, economy);
         this.adminSellManager = new AdminSellManager(this, economy);
         this.recipeGUIManager = new RecipeGUIManager(this);
+        this.gMenuListener = new GMenuListener(this);
+        databaseManager = new DatabaseManager(this);
+        databaseManager = new DatabaseManager(this);
+        chatSyncManager = new ChatSyncManager(this);
+        if (getConfig().getBoolean("halloween.enabled", false)) {
+            if (halloweenManager == null) {
+                halloweenManager = new HalloweenManager(this, databaseManager);
+                halloweenManager.registerRecipes();
+                getServer().getPluginManager().registerEvents(halloweenManager, this);
+                getLogger().info("Halloween features enabled!");
+            }
+        } else {
+            getLogger().info("Halloween features are disabled in config.");
+        }
+        WorldTeleportManager worldTeleportManager = new WorldTeleportManager(this,databaseManager);
 
         Objects.requireNonNull(this.getCommand("sendmoney")).setExecutor(new SendMoneyCommand(this));
         Objects.requireNonNull(this.getCommand("thome")).setExecutor(new ThomeCommand(this));
         Objects.requireNonNull(this.getCommand("returndeath")).setExecutor(new DeathCommand(this, invincibilityManager));
         Objects.requireNonNull(this.getCommand("gmenu")).setExecutor(new GMenuCommand(this));
         Objects.requireNonNull(this.getCommand("adminsell")).setExecutor(new AdminSellCommand(this));
-        Objects.requireNonNull(this.getCommand("rec")).setExecutor(new RecipeCommand(this, recipeGUIManager));
+        Objects.requireNonNull(this.getCommand("rec")).setExecutor(new RecipeCommand(recipeGUIManager));
+        Objects.requireNonNull(this.getCommand("res")).setExecutor(new WorldTeleportCommand(worldTeleportManager));
+        Objects.requireNonNull(this.getCommand("main")).setExecutor(new WorldTeleportCommand(worldTeleportManager));
+        Objects.requireNonNull(this.getCommand("wiki")).setExecutor(new WikiCommand(this));
+        Objects.requireNonNull(getCommand("spawn")).setExecutor(new SpawnCommand());
 
         getServer().getPluginManager().registerEvents(this, this);
         getServer().getPluginManager().registerEvents(guiManager, this);
@@ -98,11 +118,14 @@ public class TsubusabaUtils extends JavaPlugin implements Listener {
         getServer().getPluginManager().registerEvents(invincibilityManager, this);
         getServer().getPluginManager().registerEvents(griefPreventionMenuManager, this);
         getServer().getPluginManager().registerEvents(adminSellManager, this);
+        getServer().getPluginManager().registerEvents(recipeGUIManager, this);
+        getServer().getPluginManager().registerEvents(gMenuListener, this);
+        getServer().getPluginManager().registerEvents(new MainMenuListener(this), this);
         getServer().getPluginManager().registerEvents(new JobJoinListener(this, sidebarManager), this);
         getServer().getPluginManager().registerEvents(new JobLevelListener(this, sidebarManager), this);
         getServer().getPluginManager().registerEvents(new JobLeaveListener(this, sidebarManager), this);
-        getServer().getPluginManager().registerEvents(recipeGUIManager, this);
         getServer().getPluginManager().registerEvents(new SetHomeListener(this, essentials), this);
+        getServer().getPluginManager().registerEvents(chatSyncManager, this);
 
         getLogger().info("TsubusabaUtilsが有効になりました。");
 
@@ -114,7 +137,6 @@ public class TsubusabaUtils extends JavaPlugin implements Listener {
             }
         }, this);
 
-
         Bukkit.getScheduler().runTaskTimer(this, () -> {
             for (Player player : Bukkit.getOnlinePlayers()) {
                 sidebarManager.updateBalance(player);
@@ -124,6 +146,12 @@ public class TsubusabaUtils extends JavaPlugin implements Listener {
 
     @Override
     public void onDisable() {
+        if (databaseManager != null) {
+            databaseManager.closeConnection();
+        }
+        if (chatSyncManager != null) {
+            chatSyncManager.disable();
+        }
         getLogger().info("TsubusabaUtilsを無効化しました。");
     }
 
@@ -188,11 +216,20 @@ public class TsubusabaUtils extends JavaPlugin implements Listener {
     public AdminSellManager getAdminSellManager() {
         return adminSellManager;
     }
-    public static TsubusabaUtils getInstance() {   // ← 追加
+
+    public static TsubusabaUtils getInstance() {
         return instance;
     }
 
-    public SidebarManager getSidebarManager() {    // ← 追加
+    public SidebarManager getSidebarManager() {
         return sidebarManager;
+    }
+
+    public GMenuListener getGMenuListener() {
+        return gMenuListener;
+    }
+
+    public DatabaseManager getDatabaseManager() {
+        return databaseManager;
     }
 }

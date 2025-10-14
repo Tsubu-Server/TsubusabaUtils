@@ -32,8 +32,8 @@ public class JobJoinListener implements Listener {
         String jobDisplayName = event.getJob().getDisplayName();
 
         Bukkit.getScheduler().runTaskLater(plugin, () -> {
-            processJobCountAdvancements(player);          // any-job-join.first, second, third
-            processSpecificJobAdvancements(player, jobName, jobDisplayName); // specific-job-join.Miner など
+            processJobCountAdvancements(player);
+            processSpecificJobAdvancements(player, jobName, jobDisplayName);
             sidebarManager.updateJobs(player);
         }, 1L);
     }

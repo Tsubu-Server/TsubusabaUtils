@@ -19,6 +19,7 @@ import net.kyori.adventure.text.format.TextDecoration;
 import net.kyori.adventure.text.serializer.plain.PlainTextComponentSerializer;
 import net.milkbowl.vault.economy.Economy;
 
+import java.text.DecimalFormat;
 import java.util.*;
 
 public class GUIManager implements Listener {
@@ -26,6 +27,7 @@ public class GUIManager implements Listener {
     private final TsubusabaUtils plugin;
     private final Map<UUID, Integer> playerPages = new HashMap<>();
     private static final int ITEMS_PER_PAGE = 45;
+    private static final DecimalFormat df = new DecimalFormat("#,##0.#");
 
     public GUIManager(TsubusabaUtils plugin) {
         this.plugin = plugin;
@@ -60,10 +62,10 @@ public class GUIManager implements Listener {
         }
 
         if (page > 0) {
-            gui.setItem(48, createNavigationItem(Material.ARROW, "前のページ", NamedTextColor.YELLOW));
+            gui.setItem(48, createNavigationItem(Material.ORANGE_DYE, "◀ 前のページ", NamedTextColor.YELLOW));
         }
         if (page < totalPages - 1) {
-            gui.setItem(50, createNavigationItem(Material.ARROW, "次のページ", NamedTextColor.YELLOW));
+            gui.setItem(50, createNavigationItem(Material.LIME_DYE, "次のページ ▶", NamedTextColor.YELLOW));
         }
         gui.setItem(53, createNavigationItem(Material.BARRIER, "閉じる", NamedTextColor.RED));
         gui.setItem(45, createNavigationItem(Material.SPECTRAL_ARROW, "メインメニューに戻る", NamedTextColor.GOLD));
@@ -109,13 +111,13 @@ public class GUIManager implements Listener {
                 .decoration(TextDecoration.ITALIC, false));
 
         Economy economy = TsubusabaUtils.getEconomy();
-        String balance = "N/A";
+        double balance = 0.0;
         if (economy != null) {
-            balance = economy.format(economy.getBalance(player));
+            balance = economy.getBalance(player);
         }
 
         List<Component> lore = Arrays.asList(
-                Component.text("所持金: " + balance + "D")
+                Component.text("所持金: " + df.format(balance) + "D")
                         .color(NamedTextColor.YELLOW)
                         .decorate(TextDecoration.BOLD)
                         .decoration(TextDecoration.ITALIC, false)
@@ -186,7 +188,7 @@ public class GUIManager implements Listener {
                 player.playSound(player.getLocation(), Sound.UI_BUTTON_CLICK, 1.0f, 1.0f);
                 player.performCommand("menu");
             } else if (clickedItem.getType() == Material.PLAYER_HEAD) {
-                if (slot < 45) { // 他のプレイヤーの頭
+                if (slot < 45) {
                     if (meta instanceof SkullMeta skullMeta && skullMeta.getOwningPlayer() != null) {
                         String targetName = PlainTextComponentSerializer.plainText().serialize(meta.displayName());
                         Player target = Bukkit.getPlayer(targetName);

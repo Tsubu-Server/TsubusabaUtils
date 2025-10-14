@@ -23,6 +23,18 @@ commands:
   rec:
     description: Open Recipe GUI
     usage: /rec
+  res:
+    description: 資源ワールド移動
+    usage: /res
+  main:
+    description: メインワールド移動
+    usage: /main
+  spawn:
+    description: 現在のワールドのスポーン地点にテレポート
+    usage: /spawn
+  wiki:
+    description: つぶ鯖のガイドwikiを開く
+    usage: /wiki
 
   adminsell:
     description: Open admin shop buyback GUI

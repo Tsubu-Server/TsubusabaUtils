@@ -12,6 +12,7 @@ import org.bukkit.entity.Player;
 import org.bukkit.event.EventHandler;
 import org.bukkit.event.Listener;
 import org.bukkit.event.inventory.InventoryClickEvent;
+import org.bukkit.event.inventory.InventoryDragEvent;
 import org.bukkit.inventory.Inventory;
 import org.bukkit.inventory.ItemStack;
 import org.bukkit.plugin.java.JavaPlugin;
@@ -35,7 +36,7 @@ public class HomeGUIManager implements Listener {
         Collection<String> homes = homeManager.getHomeNames(player);
         Inventory inv = Bukkit.createInventory(null, 27, Component.text("ホーム一覧")
                 .color(NamedTextColor.BLUE)
-                .decoration(TextDecoration.ITALIC, false));
+                .decoration(TextDecoration.BOLD, true));
 
         int slot = 0;
         for (String homeName : homes) {
@@ -61,7 +62,7 @@ public class HomeGUIManager implements Listener {
                     lore.add(Component.text("クリック/タップでテレポート")
                             .color(NamedTextColor.GOLD)
                             .decoration(TextDecoration.ITALIC, false));
-                    lore.add(Component.text("Qキー/長押しでホーム削除")
+                    lore.add(Component.text("Qキー/ドロップでホーム削除")
                             .color(NamedTextColor.RED)
                             .decoration(TextDecoration.ITALIC, false));
                     meta.lore(lore);
@@ -85,7 +86,6 @@ public class HomeGUIManager implements Listener {
         });
         inv.setItem(22, purchaseItem);
 
-        // 閉じるボタン
         ItemStack closeItem = new ItemStack(Material.BARRIER);
         closeItem.editMeta(meta -> {
             meta.displayName(Component.text("閉じる")
@@ -118,7 +118,7 @@ public class HomeGUIManager implements Listener {
     public void openPurchaseGUI(Player player) {
         Inventory inv = Bukkit.createInventory(null, 27, Component.text("ホーム上限購入")
                 .color(NamedTextColor.BLUE)
-                .decoration(TextDecoration.ITALIC, false));
+                .decoration(TextDecoration.BOLD, true));
 
         String displayName1 = homeManager.getGroupDisplayName("home-upgrade-1");
         double price1 = homeManager.getGroupPrice("home-upgrade-1");
@@ -199,71 +199,84 @@ public class HomeGUIManager implements Listener {
     @EventHandler
     public void onInventoryClick(InventoryClickEvent event) {
         if (!(event.getWhoClicked() instanceof Player player)) return;
-        if (event.getCurrentItem() == null || !event.getCurrentItem().hasItemMeta()) return;
+        Inventory clickedInventory = event.getClickedInventory();
+        if (clickedInventory == null) return;
 
-        Component titleComponent = player.getOpenInventory().title();
-        if (titleComponent == null) return;
+        String title = PlainTextComponentSerializer.plainText().serialize(player.getOpenInventory().title());
+        if (!title.equals("ホーム一覧") && !title.equals("ホーム上限購入")) return;
 
-        String titleText = PlainTextComponentSerializer.plainText().serialize(titleComponent);
+        Inventory topInventory = player.getOpenInventory().getTopInventory();
 
-        if (!titleText.equals("ホーム一覧") && !titleText.equals("ホーム上限購入")) return;
-        event.setCancelled(true);
+        if (clickedInventory.equals(topInventory) ||
+                (clickedInventory.equals(player.getInventory()) && event.getClick().isShiftClick())) {
+            event.setCancelled(true);
+        }
 
-        ItemStack clicked = event.getCurrentItem();
-        String itemName = PlainTextComponentSerializer.plainText().serialize(clicked.getItemMeta().displayName());
+        if (clickedInventory.equals(topInventory)) {
+            ItemStack clickedItem = event.getCurrentItem();
+            if (clickedItem == null || clickedItem.getType() == Material.AIR) return;
 
-        if (titleText.equals("ホーム一覧")) {
             switch (event.getAction()) {
-                case PICKUP_ALL, PICKUP_HALF, PICKUP_ONE, PICKUP_SOME, PLACE_ALL, PLACE_SOME, PLACE_ONE -> {
-                    if (clicked.getType() == Material.BOOK) {
-                        teleportToHome(player, itemName);
-                        player.closeInventory();
-                        player.playSound(player.getLocation(), Sound.ENTITY_ENDERMAN_TELEPORT, 1.0f, 1.0f);
-                    } else if (clicked.getType() == Material.EMERALD) {
-                        openPurchaseGUI(player);
-                        player.playSound(player.getLocation(), Sound.UI_BUTTON_CLICK, 1.0f, 1.0f);
-                    } else if (clicked.getType() == Material.BARRIER && itemName.equals("閉じる")) {
-                        player.closeInventory();
-                        player.playSound(player.getLocation(), Sound.UI_BUTTON_CLICK, 1.0f, 1.0f);
-                    } else if (clicked.getType() == Material.SPECTRAL_ARROW && itemName.equals("メインメニューに戻る")) {
-                        player.closeInventory();
-                        player.playSound(player.getLocation(), Sound.UI_BUTTON_CLICK, 1.0f, 1.0f);
-                        player.performCommand("menu");
-                    }
-                }
                 case DROP_ONE_SLOT, DROP_ALL_SLOT -> {
-                    if (clicked.getType() == Material.BOOK) {
+                    if (title.equals("ホーム一覧") && clickedItem.getType() == Material.BOOK) {
+                        String itemName = PlainTextComponentSerializer.plainText().serialize(clickedItem.getItemMeta().displayName());
                         boolean deleted = homeManager.deleteHome(player, itemName);
                         if (deleted) {
-                            player.playSound(player.getLocation(), Sound.ENTITY_ITEM_BREAK, 1.0f, 1.0f);
+                            player.playSound(player.getLocation(), Sound.ENTITY_ITEM_BREAK, 1f, 1f);
                             openHomeGUI(player);
                         }
                     }
                 }
-            }
-        }
+                default -> {
+                    String itemName = clickedItem.hasItemMeta() ?
+                            PlainTextComponentSerializer.plainText().serialize(clickedItem.getItemMeta().displayName()) : "";
 
-        else if (titleText.equals("ホーム上限購入")) {
-            switch (event.getAction()) {
-                case PICKUP_ALL, PICKUP_HALF, PICKUP_ONE, PICKUP_SOME, PLACE_ALL, PLACE_SOME, PLACE_ONE -> {
-                    if (clicked.getType() == Material.DIAMOND_HOE) {
-                        boolean success = homeManager.purchaseHomeUpgrade(player, "home-upgrade-1");
-                        player.playSound(player.getLocation(), success ? Sound.ENTITY_PLAYER_LEVELUP : Sound.ENTITY_VILLAGER_NO, 1.0f, success ? 1.5f : 1.0f);
-                        player.closeInventory();
-                    } else if (clicked.getType() == Material.NETHERITE_HOE) {
-                        boolean success = homeManager.purchaseHomeUpgrade(player, "home-upgrade-2");
-                        player.playSound(player.getLocation(), success ? Sound.ENTITY_PLAYER_LEVELUP : Sound.ENTITY_VILLAGER_NO, 1.0f, success ? 1.5f : 1.0f);
-                        player.closeInventory();
-                    } else if (clicked.getType() == Material.ARROW && itemName.equals("戻る")) {
-                        openHomeGUI(player);
-                        player.playSound(player.getLocation(), Sound.UI_BUTTON_CLICK, 1.0f, 1.0f);
-                    } else if (clicked.getType() == Material.BARRIER && itemName.equals("閉じる")) {
-                        player.closeInventory();
-                        player.playSound(player.getLocation(), Sound.UI_BUTTON_CLICK, 1.0f, 1.0f);
+                    if (title.equals("ホーム一覧")) {
+                        if (clickedItem.getType() == Material.BOOK) {
+                            teleportToHome(player, itemName);
+                            player.closeInventory();
+                            player.playSound(player.getLocation(), Sound.ENTITY_ENDERMAN_TELEPORT, 1f, 1f);
+                        } else if (clickedItem.getType() == Material.EMERALD) {
+                            openPurchaseGUI(player);
+                            player.playSound(player.getLocation(), Sound.UI_BUTTON_CLICK, 1f, 1f);
+                        } else if (clickedItem.getType() == Material.BARRIER) {
+                            player.closeInventory();
+                            player.playSound(player.getLocation(), Sound.UI_BUTTON_CLICK, 1f, 1f);
+                        } else if (clickedItem.getType() == Material.SPECTRAL_ARROW) {
+                            player.closeInventory();
+                            player.playSound(player.getLocation(), Sound.UI_BUTTON_CLICK, 1f, 1f);
+                            player.performCommand("menu");
+                        }
+                    } else if (title.equals("ホーム上限購入")) {
+                        if (clickedItem.getType() == Material.DIAMOND_HOE) {
+                            homeManager.purchaseHomeUpgrade(player, "home-upgrade-1");
+                            player.closeInventory();
+                        } else if (clickedItem.getType() == Material.NETHERITE_HOE) {
+                            homeManager.purchaseHomeUpgrade(player, "home-upgrade-2");
+                            player.closeInventory();
+                        } else if (clickedItem.getType() == Material.ARROW) {
+                            openHomeGUI(player);
+                            player.playSound(player.getLocation(), Sound.UI_BUTTON_CLICK, 1f, 1f);
+                        } else if (clickedItem.getType() == Material.BARRIER) {
+                            player.closeInventory();
+                            player.playSound(player.getLocation(), Sound.UI_BUTTON_CLICK, 1f, 1f);
+                        }
                     }
                 }
             }
         }
     }
 
+    @EventHandler
+    public void onInventoryDrag(InventoryDragEvent event) {
+        if (!(event.getWhoClicked() instanceof Player player)) return;
+
+        Component titleComponent = player.getOpenInventory().title();
+        if (titleComponent == null) return;
+
+        String titleText = PlainTextComponentSerializer.plainText().serialize(titleComponent);
+        if (titleText.equals("ホーム一覧") || titleText.equals("ホーム上限購入")) {
+            event.setCancelled(true); // ドラッグによるアイテム移動をキャンセル
+        }
+    }
 }
