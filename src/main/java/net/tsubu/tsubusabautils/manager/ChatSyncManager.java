@@ -18,9 +18,6 @@ import java.io.ByteArrayOutputStream;
 import java.io.DataOutputStream;
 import java.io.IOException;
 
-/**
- * BungeeCordを通じてサーバー間でチャットを同期するマネージャー
- */
 public class ChatSyncManager implements Listener, PluginMessageListener {
 
     private final TsubusabaUtils plugin;
@@ -29,16 +26,10 @@ public class ChatSyncManager implements Listener, PluginMessageListener {
 
     public ChatSyncManager(TsubusabaUtils plugin) {
         this.plugin = plugin;
-
-        // プラグインチャンネルの登録
         Bukkit.getMessenger().registerOutgoingPluginChannel(plugin, CHANNEL);
         Bukkit.getMessenger().registerIncomingPluginChannel(plugin, CHANNEL, this);
     }
 
-    /**
-     * チャットイベントを監視し、BungeeCordに送信
-     * MONITORプライオリティで、ChatManagerの処理後に実行
-     */
     @EventHandler(priority = EventPriority.MONITOR)
     public void onAsyncChat(@NotNull AsyncChatEvent event) {
         if (event.isCancelled()) {
@@ -78,9 +69,6 @@ public class ChatSyncManager implements Listener, PluginMessageListener {
         sendToBungee(player, serialized);
     }
 
-    /**
-     * チャットメッセージをBungeeCordに送信
-     */
     private void sendToBungee(Player player, String serializedComponent) {
         ByteArrayOutputStream stream = new ByteArrayOutputStream();
         DataOutputStream out = new DataOutputStream(stream);
@@ -97,9 +85,6 @@ public class ChatSyncManager implements Listener, PluginMessageListener {
         player.sendPluginMessage(plugin, CHANNEL, stream.toByteArray());
     }
 
-    /**
-     * BungeeCordからのメッセージを受信
-     */
     @Override
     public void onPluginMessageReceived(@NotNull String channel, @NotNull Player player, byte[] message) {
         if (!channel.equals(CHANNEL)) {
@@ -129,22 +114,15 @@ public class ChatSyncManager implements Listener, PluginMessageListener {
         }
     }
 
-    /**
-     * 現在のサーバー名を取得
-     */
     private String getServerName() {
         String serverName = plugin.getConfig().getString("server-name");
         if (serverName == null || serverName.isEmpty()) {
-            // 設定がない場合はデフォルト値
             serverName = "unknown";
             plugin.getLogger().warning("server-name is not set in config.yml!");
         }
         return serverName;
     }
 
-    /**
-     * プラグイン無効化時のクリーンアップ
-     */
     public void disable() {
         Bukkit.getMessenger().unregisterOutgoingPluginChannel(plugin, CHANNEL);
         Bukkit.getMessenger().unregisterIncomingPluginChannel(plugin, CHANNEL, this);

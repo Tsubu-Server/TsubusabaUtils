@@ -30,7 +30,6 @@ public class WorldTeleportCommand implements CommandExecutor {
         switch (cmd) {
             case "res" -> targetWorldName = "resource";
             case "main" -> targetWorldName = "world";
-            case "trap" -> targetWorldName = "trap";
             default -> {
                 player.sendMessage("§c不明なコマンドです。");
                 return true;
@@ -38,32 +37,24 @@ public class WorldTeleportCommand implements CommandExecutor {
         }
 
         Location lastLoc = manager.getLastLocationByPrefix(player, targetWorldName);
-        World targetWorld = Bukkit.getWorld(targetWorldName);
-
-        if (targetWorld == null) {
-            player.sendMessage("§cワールド '" + targetWorldName + "' が存在しません。");
-            return true;
-        }
-
         Location targetLoc;
-
         if (lastLoc != null && lastLoc.getWorld() != null && lastLoc.getWorld().getName().toLowerCase().startsWith(targetWorldName.toLowerCase())) {
-            targetLoc = lastLoc;
+            targetLoc = lastLoc.clone();
         } else {
-            targetLoc = targetWorld.getSpawnLocation();
+            World targetWorld = Bukkit.getWorld(targetWorldName);
+            targetLoc = targetWorld.getSpawnLocation().clone();
         }
+
+        targetLoc.setX(targetLoc.getBlockX() + 0.5);
+        targetLoc.setZ(targetLoc.getBlockZ() + 0.5);
+        targetLoc.setY(targetLoc.getWorld().getHighestBlockYAt(targetLoc) + 1);
 
         player.sendMessage("§7転送準備中...");
 
-        Bukkit.getScheduler().runTaskLater(manager.getPlugin(), () -> {
-            player.teleportAsync(targetLoc).thenRun(() -> {
-                player.sendMessage("§a" + targetWorldName + " に移動しました！");
-            }).exceptionally(ex -> {
-                player.sendMessage("§c転送に失敗しました。");
-                manager.getPlugin().getLogger().warning("Teleport failed for " + player.getName() + ": " + ex.getMessage());
-                return null;
-            });
-        }, 30L);
+        Bukkit.getScheduler().runTask(manager.getPlugin(), () -> {
+            player.teleport(targetLoc);
+            player.sendMessage("§a" + targetLoc.getWorld().getName() + " に移動しました！");
+        });
 
         return true;
     }
