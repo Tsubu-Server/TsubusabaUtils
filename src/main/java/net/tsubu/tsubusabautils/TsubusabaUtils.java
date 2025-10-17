@@ -98,7 +98,6 @@ public class TsubusabaUtils extends JavaPlugin implements Listener {
         } else {
             getLogger().info("Halloween features are disabled in config.");
         }
-        WorldTeleportManager worldTeleportManager = new WorldTeleportManager(this,databaseManager);
 
         Objects.requireNonNull(this.getCommand("sendmoney")).setExecutor(new SendMoneyCommand(this));
         Objects.requireNonNull(this.getCommand("thome")).setExecutor(new ThomeCommand(this));
@@ -106,8 +105,6 @@ public class TsubusabaUtils extends JavaPlugin implements Listener {
         Objects.requireNonNull(this.getCommand("gmenu")).setExecutor(new GMenuCommand(this));
         Objects.requireNonNull(this.getCommand("adminsell")).setExecutor(new AdminSellCommand(this));
         Objects.requireNonNull(this.getCommand("rec")).setExecutor(new RecipeCommand(recipeGUIManager));
-        Objects.requireNonNull(this.getCommand("res")).setExecutor(new WorldTeleportCommand(worldTeleportManager));
-        Objects.requireNonNull(this.getCommand("main")).setExecutor(new WorldTeleportCommand(worldTeleportManager));
         Objects.requireNonNull(this.getCommand("wiki")).setExecutor(new WikiCommand(this));
         Objects.requireNonNull(getCommand("spawn")).setExecutor(new SpawnCommand());
 
