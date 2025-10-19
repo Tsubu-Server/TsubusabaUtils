@@ -24,13 +24,6 @@ commands:
     description: Open Recipe GUI
     usage: /rec
     aliases: recipe
-  res:
-    description: 資源ワールド移動
-    usage: /res
-    aliases: resource
-  main:
-    description: メインワールド移動
-    usage: /main
   spawn:
     description: 現在のワールドのスポーン地点にテレポート
     usage: /spawn
