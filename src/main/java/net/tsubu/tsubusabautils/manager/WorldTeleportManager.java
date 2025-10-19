@@ -8,7 +8,6 @@ import org.bukkit.event.EventHandler;
 import org.bukkit.event.Listener;
 import org.bukkit.event.player.PlayerJoinEvent;
 import org.bukkit.event.player.PlayerQuitEvent;
-import org.bukkit.event.player.PlayerTeleportEvent;
 import org.bukkit.plugin.java.JavaPlugin;
 
 import java.sql.*;
@@ -31,13 +30,8 @@ public class WorldTeleportManager implements Listener {
             this.timestamp = System.currentTimeMillis();
         }
 
-        public Location getLocation() {
-            return location;
-        }
-
-        public long getTimestamp() {
-            return timestamp;
-        }
+        public Location getLocation() { return location; }
+        public long getTimestamp() { return timestamp; }
     }
 
     public WorldTeleportManager(JavaPlugin plugin, DatabaseManager databaseManager) {
@@ -46,7 +40,6 @@ public class WorldTeleportManager implements Listener {
 
         Bukkit.getPluginManager().registerEvents(this, plugin);
 
-        // データベースが有効ならテーブルを作成
         if (databaseManager.isEnabled()) {
             String sql = """
                 CREATE TABLE IF NOT EXISTS player_last_locations (
@@ -113,37 +106,84 @@ public class WorldTeleportManager implements Listener {
         }
     }
 
-    @EventHandler
-    public void onTeleport(PlayerTeleportEvent event) {
-        Player player = event.getPlayer();
-        Location from = event.getFrom();
-        String fromWorld = from.getWorld().getName();
+    public void saveCurrentLocation(Player player) {
+        Location currentLoc = player.getLocation();
+        String worldName = currentLoc.getWorld().getName();
 
         lastLocations.putIfAbsent(player.getUniqueId(), new HashMap<>());
-        lastLocations.get(player.getUniqueId()).put(fromWorld, new LastLocation(from));
+        lastLocations.get(player.getUniqueId()).put(worldName, new LastLocation(currentLoc));
 
-        saveLocationToDatabase(player, fromWorld, from);
+        saveLocationToDatabase(player, worldName, currentLoc);
     }
 
     @EventHandler
     public void onJoin(PlayerJoinEvent event) {
-        lastLocations.putIfAbsent(event.getPlayer().getUniqueId(), new HashMap<>());
+        Player player = event.getPlayer();
+        UUID uuid = player.getUniqueId();
+
+        lastLocations.putIfAbsent(uuid, new HashMap<>());
+
+        if (!databaseManager.isEnabled()) return;
+
+        try (PreparedStatement stmt = databaseManager.getConnection()
+                .prepareStatement("SELECT * FROM player_last_locations WHERE uuid = ?")) {
+            stmt.setString(1, uuid.toString());
+            ResultSet rs = stmt.executeQuery();
+
+            Map<String, LastLocation> map = new HashMap<>();
+            while (rs.next()) {
+                String world = rs.getString("world");
+                double x = rs.getDouble("x");
+                double y = rs.getDouble("y");
+                double z = rs.getDouble("z");
+                float yaw = rs.getFloat("yaw");
+                float pitch = rs.getFloat("pitch");
+
+                World bukkitWorld = Bukkit.getWorld(world);
+                if (bukkitWorld != null) {
+                    map.put(world, new LastLocation(new Location(bukkitWorld, x, y, z, yaw, pitch)));
+                }
+            }
+            lastLocations.put(uuid, map);
+        } catch (SQLException e) {
+            plugin.getLogger().warning("プレイヤー座標のロードに失敗: " + e.getMessage());
+        }
+    }
+
+    @EventHandler
+    public void onTeleport(org.bukkit.event.player.PlayerTeleportEvent event) {
+        Player player = event.getPlayer();
+        Location from = event.getFrom();
+        Location to = event.getTo();
+        if (to == null) return;
+
+        if (!from.getWorld().equals(to.getWorld())) {
+            Location worldSpawn = to.getWorld().getSpawnLocation();
+            if (to.getBlockX() == worldSpawn.getBlockX() &&
+                    to.getBlockY() == worldSpawn.getBlockY() &&
+                    to.getBlockZ() == worldSpawn.getBlockZ()) {
+                return;
+            }
+
+            String fromWorld = from.getWorld().getName();
+            lastLocations.putIfAbsent(player.getUniqueId(), new HashMap<>());
+            lastLocations.get(player.getUniqueId()).put(fromWorld, new LastLocation(from));
+            saveLocationToDatabase(player, fromWorld, from);
+        }
     }
 
     @EventHandler
     public void onQuit(PlayerQuitEvent event) {
-        Player player = event.getPlayer();
-        Map<String, LastLocation> map = lastLocations.get(player.getUniqueId());
-        if (map != null) {
-            for (Map.Entry<String, LastLocation> entry : map.entrySet()) {
-                saveLocationToDatabase(player, entry.getKey(), entry.getValue().getLocation());
-            }
-        }
+        saveCurrentLocation(event.getPlayer());
     }
 
+    /**
+     * プレイヤーの指定 prefix ワールドの中で最新の座標を取得
+     * 例: prefix="resource" -> resource/resource_nether/resource_the_end から最新 timestamp を返す
+     */
     public Location getLastLocationByPrefix(Player player, String prefix) {
         Map<String, LastLocation> map = lastLocations.get(player.getUniqueId());
-        if (map == null) return null;
+        if (map == null || map.isEmpty()) return null;
 
         LastLocation last = null;
         for (Map.Entry<String, LastLocation> entry : map.entrySet()) {
