@@ -10,9 +10,7 @@ import org.bukkit.event.player.PlayerQuitEvent;
 import org.bukkit.plugin.java.JavaPlugin;
 
 import java.sql.*;
-import java.util.ArrayList;
-import java.util.List;
-import java.util.UUID;
+import java.util.*;
 
 public class PlayerCacheManager implements Listener {
 
@@ -31,6 +29,7 @@ public class PlayerCacheManager implements Listener {
                         "uuid VARCHAR(36) PRIMARY KEY," +
                         "name VARCHAR(16) NOT NULL," +
                         "last_seen BIGINT NOT NULL," +
+                        "skin_url TEXT," +
                         "INDEX idx_name (name)," +
                         "INDEX idx_last_seen (last_seen)" +
                         ")"
@@ -40,29 +39,43 @@ public class PlayerCacheManager implements Listener {
     @EventHandler
     public void onPlayerJoin(PlayerJoinEvent event) {
         Player p = event.getPlayer();
-        updatePlayerCache(p.getUniqueId(), p.getName(), System.currentTimeMillis());
+        updatePlayerCache(p.getUniqueId(), p.getName(), System.currentTimeMillis(), getSkinUrl(p));
     }
 
     @EventHandler
     public void onPlayerQuit(PlayerQuitEvent event) {
         Player p = event.getPlayer();
-        updatePlayerCache(p.getUniqueId(), p.getName(), System.currentTimeMillis());
+        updatePlayerCache(p.getUniqueId(), p.getName(), System.currentTimeMillis(), getSkinUrl(p));
     }
 
-    public void updatePlayerCache(UUID uuid, String name, long lastSeen) {
+    private String getSkinUrl(Player player) {
+        try {
+            var profile = player.getPlayerProfile();
+            var textures = profile.getTextures();
+            var skin = textures.getSkin();
+            return (skin != null) ? skin.toString() : null;
+        } catch (Exception e) {
+            return null;
+        }
+    }
+
+    public void updatePlayerCache(UUID uuid, String name, long lastSeen, String skinUrl) {
         if (!dbManager.isEnabled()) return;
 
         Bukkit.getScheduler().runTaskAsynchronously(plugin, () -> {
             try (Connection conn = dbManager.getConnection();
                  PreparedStatement stmt = conn.prepareStatement(
-                         "INSERT INTO player_cache (uuid, name, last_seen) VALUES (?, ?, ?) " +
-                                 "ON DUPLICATE KEY UPDATE name = ?, last_seen = ?")) {
+                         "INSERT INTO player_cache (uuid, name, last_seen, skin_url) VALUES (?, ?, ?, ?) " +
+                                 "ON DUPLICATE KEY UPDATE name = ?, last_seen = ?, skin_url = IFNULL(?, skin_url)"
+                 )) {
 
                 stmt.setString(1, uuid.toString());
                 stmt.setString(2, name);
                 stmt.setLong(3, lastSeen);
-                stmt.setString(4, name);
-                stmt.setLong(5, lastSeen);
+                stmt.setString(4, skinUrl);
+                stmt.setString(5, name);
+                stmt.setLong(6, lastSeen);
+                stmt.setString(7, skinUrl);
                 stmt.executeUpdate();
 
             } catch (SQLException e) {
@@ -71,7 +84,7 @@ public class PlayerCacheManager implements Listener {
         });
     }
 
-    public void getPlayersAsync(String searchQuery, int limit, int offset, PlayerListCallback callback) {
+    public void getPlayersAsync(String searchQuery, int limit, int offset, CachedPlayer.PlayerListCallback callback) {
         if (!dbManager.isEnabled()) {
             Bukkit.getScheduler().runTask(plugin, () -> callback.onResult(new ArrayList<>(), 0));
             return;
@@ -98,7 +111,7 @@ public class PlayerCacheManager implements Listener {
                 }
 
                 try (PreparedStatement stmt = conn.prepareStatement(
-                        "SELECT uuid, name, last_seen FROM player_cache " +
+                        "SELECT uuid, name, last_seen, skin_url FROM player_cache " +
                                 whereClause +
                                 "ORDER BY last_seen DESC LIMIT ? OFFSET ?")) {
 
@@ -114,7 +127,8 @@ public class PlayerCacheManager implements Listener {
                         players.add(new CachedPlayer(
                                 UUID.fromString(rs.getString("uuid")),
                                 rs.getString("name"),
-                                rs.getLong("last_seen")
+                                rs.getLong("last_seen"),
+                                rs.getString("skin_url")
                         ));
                     }
                 }
@@ -135,12 +149,22 @@ public class PlayerCacheManager implements Listener {
             int count = 0;
             for (OfflinePlayer op : Bukkit.getOfflinePlayers()) {
                 if (op.getName() != null && op.hasPlayedBefore()) {
-                    updatePlayerCache(op.getUniqueId(), op.getName(), op.getLastPlayed());
+                    String skinUrl = null;
+                    try {
+                        var profile = op.getPlayerProfile();
+                        var textures = profile.getTextures();
+                        var skin = textures.getSkin();
+                        if (skin != null) skinUrl = skin.toString();
+                    } catch (Exception ignored) {}
+
+                    updatePlayerCache(op.getUniqueId(), op.getName(), op.getLastPlayed(), skinUrl);
                     count++;
                 }
             }
             int finalCount = count;
-            plugin.getLogger().info("Player cache initialized with " + finalCount + " players!");
+            Bukkit.getScheduler().runTask(plugin, () ->
+                    plugin.getLogger().info("Player cache initialized with " + finalCount + " players!")
+            );
         });
     }
 
@@ -148,11 +172,14 @@ public class PlayerCacheManager implements Listener {
         public final UUID uuid;
         public final String name;
         public final long lastSeen;
+        public final String skinUrl;
+        private com.destroystokyo.paper.profile.PlayerProfile profile;
 
-        public CachedPlayer(UUID uuid, String name, long lastSeen) {
+        public CachedPlayer(UUID uuid, String name, long lastSeen, String skinUrl) {
             this.uuid = uuid;
             this.name = name;
             this.lastSeen = lastSeen;
+            this.skinUrl = skinUrl;
         }
 
         public boolean isOnline() {
@@ -162,9 +189,43 @@ public class PlayerCacheManager implements Listener {
         public OfflinePlayer getOfflinePlayer() {
             return Bukkit.getOfflinePlayer(uuid);
         }
-    }
 
-    public interface PlayerListCallback {
-        void onResult(List<CachedPlayer> players, int totalCount);
+        public com.destroystokyo.paper.profile.PlayerProfile getProfile() {
+            if (profile != null) return profile;
+
+            profile = Bukkit.createProfile(uuid, name);
+
+            if (skinUrl != null && !skinUrl.isEmpty()) {
+                try {
+                    profile.getTextures().setSkin(new java.net.URL(skinUrl));
+                    return profile;
+                } catch (java.net.MalformedURLException ignored) {}
+            }
+
+            var plugin = Bukkit.getPluginManager().getPlugin("TsubusabaUtils");
+            if (plugin != null) {
+                Bukkit.getScheduler().runTaskAsynchronously(plugin, () -> {
+                    try {
+                        com.destroystokyo.paper.profile.PlayerProfile fetched = Bukkit.createProfile(uuid, name);
+                        fetched.complete(true);
+                        this.profile = fetched;
+                    } catch (Exception e) {
+                        Bukkit.getLogger().warning("Failed to fetch skin for " + name + ": " + e.getMessage());
+                    }
+                });
+            } else {
+                Bukkit.getLogger().warning("Plugin TsubusabaUtils not found - cannot async fetch player profile for " + name);
+            }
+
+            return profile;
+        }
+
+        public void setProfile(com.destroystokyo.paper.profile.PlayerProfile profile) {
+            this.profile = profile;
+        }
+
+        public interface PlayerListCallback {
+            void onResult(List<CachedPlayer> players, int totalCount);
+        }
     }
 }

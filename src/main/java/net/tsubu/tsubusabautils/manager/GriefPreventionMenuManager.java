@@ -171,14 +171,12 @@ public class GriefPreventionMenuManager implements Listener {
                                     .decorate(TextDecoration.BOLD)
                                     .decoration(TextDecoration.ITALIC, false));
 
-                    // プレイヤーヘッドを配置
                     for (int i = 0; i < players.size() && i < pageSize; i++) {
                         PlayerCacheManager.CachedPlayer cp = players.get(i);
                         if (cp.uuid.equals(player.getUniqueId())) continue;
                         gui.setItem(i, createPlayerHeadItemFast(cp));
                     }
 
-                    // 検索ボタン
                     ItemStack searchItem = new ItemStack(Material.SPYGLASS);
                     searchItem.editMeta(meta -> {
                         meta.displayName(Component.text("プレイヤー検索")
@@ -485,8 +483,47 @@ public class GriefPreventionMenuManager implements Listener {
         ItemStack item = new ItemStack(Material.PLAYER_HEAD);
         SkullMeta meta = (SkullMeta) item.getItemMeta();
 
-        com.destroystokyo.paper.profile.PlayerProfile profile =
-                Bukkit.createProfile(cp.uuid, cp.name);
+        com.destroystokyo.paper.profile.PlayerProfile profile = cp.getProfile();
+
+        if (profile == null) {
+            profile = Bukkit.createProfile(cp.uuid, cp.name);
+            cp.setProfile(profile);
+
+            var plugin = this.plugin;
+            Bukkit.getScheduler().runTaskAsynchronously(plugin, () -> {
+                try {
+                    com.destroystokyo.paper.profile.PlayerProfile fetched = Bukkit.createProfile(cp.uuid, cp.name);
+                    fetched.complete(true);
+                    cp.setProfile(fetched);
+
+                    Bukkit.getScheduler().runTask(plugin, () -> {
+                        ItemStack updated = new ItemStack(Material.PLAYER_HEAD);
+                        SkullMeta updatedMeta = (SkullMeta) updated.getItemMeta();
+                        updatedMeta.setPlayerProfile(fetched);
+
+                        boolean isOnline = cp.isOnline();
+                        updatedMeta.displayName(Component.text(cp.name)
+                                .color(isOnline ? NamedTextColor.GREEN : NamedTextColor.GRAY)
+                                .decoration(TextDecoration.ITALIC, false));
+
+                        List<Component> lore = Arrays.asList(
+                                Component.text("クリック/タップで追加・管理")
+                                        .color(NamedTextColor.GOLD)
+                                        .decoration(TextDecoration.ITALIC, false),
+                                Component.text(isOnline ? "オンライン" : "オフライン")
+                                        .color(isOnline ? NamedTextColor.GREEN : NamedTextColor.RED)
+                                        .decoration(TextDecoration.ITALIC, false)
+                        );
+                        updatedMeta.lore(lore);
+                        updated.setItemMeta(updatedMeta);
+
+                    });
+
+                } catch (Exception e) {
+                    plugin.getLogger().warning("Failed to fetch skin for " + cp.name + ": " + e.getMessage());
+                }
+            });
+        }
         meta.setPlayerProfile(profile);
 
         boolean isOnline = cp.isOnline();

@@ -10,8 +10,10 @@ import java.sql.Statement;
 public class DatabaseManager {
 
     private final JavaPlugin plugin;
-    private Connection connection;
     private boolean enabled;
+    private String jdbcUrl;
+    private String user;
+    private String password;
 
     public DatabaseManager(JavaPlugin plugin) {
         this.plugin = plugin;
@@ -25,15 +27,17 @@ public class DatabaseManager {
         String host = plugin.getConfig().getString("database.host");
         int port = plugin.getConfig().getInt("database.port");
         String db = plugin.getConfig().getString("database.database");
-        String user = plugin.getConfig().getString("database.user");
-        String pass = plugin.getConfig().getString("database.password");
+        this.user = plugin.getConfig().getString("database.user");
+        this.password = plugin.getConfig().getString("database.password");
+
+        this.jdbcUrl = "jdbc:mariadb://" + host + ":" + port + "/" + db
+                + "?autoReconnect=true&useSSL=false&allowPublicKeyRetrieval=true";
 
         try {
             Class.forName("org.mariadb.jdbc.Driver");
-            connection = DriverManager.getConnection(
-                    "jdbc:mariadb://" + host + ":" + port + "/" + db, user, pass
-            );
-            plugin.getLogger().info("Database connected successfully.");
+            try (Connection testConn = getConnection()) {
+                plugin.getLogger().info("Database connected successfully.");
+            }
         } catch (ClassNotFoundException e) {
             plugin.getLogger().severe("MariaDB driver not found.");
             enabled = false;
@@ -47,14 +51,18 @@ public class DatabaseManager {
         return enabled;
     }
 
-    public Connection getConnection() {
-        return connection;
+    /**
+     * 新しい接続を取得（使用後は必ず閉じること）
+     */
+    public Connection getConnection() throws SQLException {
+        if (!enabled) {
+            throw new SQLException("Database is not enabled");
+        }
+        return DriverManager.getConnection(jdbcUrl, user, password);
     }
 
     public void closeConnection() {
-        try {
-            if (connection != null) connection.close();
-        } catch (SQLException ignored) {}
+        plugin.getLogger().info("Database manager closed.");
     }
 
     /**
@@ -62,7 +70,8 @@ public class DatabaseManager {
      */
     public void createTable(String sql) {
         if (!enabled) return;
-        try (Statement stmt = connection.createStatement()) {
+        try (Connection conn = getConnection();
+             Statement stmt = conn.createStatement()) {
             stmt.executeUpdate(sql);
         } catch (SQLException e) {
             plugin.getLogger().severe("Failed to create table: " + e.getMessage());

@@ -54,7 +54,6 @@ public class HalloweenManager implements Listener {
 
         if (databaseManager != null && databaseManager.isEnabled()) {
             this.databaseEnabled = true;
-            this.connection = databaseManager.getConnection();
             createTablesIfNeeded();
         } else {
             this.databaseEnabled = false;
@@ -158,7 +157,8 @@ public class HalloweenManager implements Listener {
     private boolean canTrickToday(Player attacker, Player victim) {
         if (!databaseEnabled) return true;
         String sql = "SELECT * FROM player_trick_history WHERE attacker_uuid=? AND victim_uuid=? AND date=?";
-        try (PreparedStatement stmt = connection.prepareStatement(sql)) {
+        try (Connection conn = databaseManager.getConnection();
+             PreparedStatement stmt = conn.prepareStatement(sql)) {
             stmt.setString(1, attacker.getUniqueId().toString());
             stmt.setString(2, victim.getUniqueId().toString());
             stmt.setDate(3, new java.sql.Date(System.currentTimeMillis()));
@@ -172,7 +172,8 @@ public class HalloweenManager implements Listener {
     private void recordTrickToday(Player attacker, Player victim) {
         if (!databaseEnabled) return;
         String sql = "REPLACE INTO player_trick_history (attacker_uuid,victim_uuid,date) VALUES (?,?,?)";
-        try (PreparedStatement stmt = connection.prepareStatement(sql)) {
+        try (Connection conn = databaseManager.getConnection();
+             PreparedStatement stmt = conn.prepareStatement(sql)) {
             stmt.setString(1, attacker.getUniqueId().toString());
             stmt.setString(2, victim.getUniqueId().toString());
             stmt.setDate(3, new java.sql.Date(System.currentTimeMillis()));

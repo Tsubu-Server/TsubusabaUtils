@@ -82,12 +82,12 @@ public class TsubusabaUtils extends JavaPlugin implements Listener {
         this.amountGUIManager = new AmountGUIManager(this);
         this.chatManager = new ChatManager(this, luckPerms);
         this.invincibilityManager = new InvincibilityManager();
-        this.griefPreventionMenuManager = new GriefPreventionMenuManager(this, griefPrevention, economy,playerCacheManager);
         this.adminSellManager = new AdminSellManager(this, economy);
         this.recipeGUIManager = new RecipeGUIManager(this);
         this.gMenuListener = new GMenuListener(this);
         databaseManager = new DatabaseManager(this);
         playerCacheManager = new PlayerCacheManager(this, databaseManager);
+        griefPreventionMenuManager = new GriefPreventionMenuManager(this, griefPrevention, economy, playerCacheManager);
         chatSyncManager = new ChatSyncManager(this);
         if (getConfig().getBoolean("halloween.enabled", false)) {
             if (halloweenManager == null) {
