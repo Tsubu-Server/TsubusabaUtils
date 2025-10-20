@@ -41,6 +41,7 @@ public class TsubusabaUtils extends JavaPlugin implements Listener {
     private HalloweenManager halloweenManager;
     private DatabaseManager databaseManager;
     private ChatSyncManager chatSyncManager;
+    private PlayerCacheManager playerCacheManager;
 
     @Override
     public void onEnable() {
@@ -81,12 +82,12 @@ public class TsubusabaUtils extends JavaPlugin implements Listener {
         this.amountGUIManager = new AmountGUIManager(this);
         this.chatManager = new ChatManager(this, luckPerms);
         this.invincibilityManager = new InvincibilityManager();
-        this.griefPreventionMenuManager = new GriefPreventionMenuManager(this, griefPrevention, economy);
+        this.griefPreventionMenuManager = new GriefPreventionMenuManager(this, griefPrevention, economy,playerCacheManager);
         this.adminSellManager = new AdminSellManager(this, economy);
         this.recipeGUIManager = new RecipeGUIManager(this);
         this.gMenuListener = new GMenuListener(this);
         databaseManager = new DatabaseManager(this);
-        databaseManager = new DatabaseManager(this);
+        playerCacheManager = new PlayerCacheManager(this, databaseManager);
         chatSyncManager = new ChatSyncManager(this);
         if (getConfig().getBoolean("halloween.enabled", false)) {
             if (halloweenManager == null) {
@@ -126,6 +127,7 @@ public class TsubusabaUtils extends JavaPlugin implements Listener {
         getServer().getPluginManager().registerEvents(new JobLeaveListener(this, sidebarManager), this);
         getServer().getPluginManager().registerEvents(new SetHomeListener(this, essentials), this);
         getServer().getPluginManager().registerEvents(chatSyncManager, this);
+        getServer().getPluginManager().registerEvents(playerCacheManager, this);
 
         getLogger().info("TsubusabaUtilsが有効になりました。");
 
@@ -142,6 +144,13 @@ public class TsubusabaUtils extends JavaPlugin implements Listener {
                 sidebarManager.updateBalance(player);
             }
         }, 0L, 20L);
+
+        Bukkit.getScheduler().runTaskLater(this, () -> {
+            if (databaseManager.isEnabled()) {
+                getLogger().info("Initializing player cache from offline players...");
+                playerCacheManager.initializeCacheFromOfflinePlayers();
+            }
+        }, 100L);
     }
 
     @Override
@@ -231,5 +240,9 @@ public class TsubusabaUtils extends JavaPlugin implements Listener {
 
     public DatabaseManager getDatabaseManager() {
         return databaseManager;
+    }
+
+    public PlayerCacheManager getPlayerCacheManager() {
+        return playerCacheManager;
     }
 }

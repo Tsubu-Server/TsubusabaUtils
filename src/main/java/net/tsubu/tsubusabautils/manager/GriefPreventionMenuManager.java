@@ -50,6 +50,7 @@ public class GriefPreventionMenuManager implements Listener {
     private static final DecimalFormat df = new DecimalFormat("#,##0.#");
     private final double claimBlockCost;
     private final double sellRate;
+    private final PlayerCacheManager playerCacheManager;
 
     private final List<FlagDisplay> flagsToShow = List.of(
             new FlagDisplay("novinegrowth", "ツタの成長防止", Material.VINE, 24,
@@ -85,10 +86,11 @@ public class GriefPreventionMenuManager implements Listener {
     private File claimsFile;
     private FileConfiguration claimsConfig;
 
-    public GriefPreventionMenuManager(TsubusabaUtils plugin, GriefPrevention griefPrevention, Economy economy) {
+    public GriefPreventionMenuManager(TsubusabaUtils plugin, GriefPrevention griefPrevention, Economy economy, PlayerCacheManager playerCacheManager) {
         this.plugin = plugin;
         this.griefPrevention = griefPrevention;
         this.economy = economy;
+        this.playerCacheManager = playerCacheManager;
         setupClaimsConfig();
         this.claimBlockCost = griefPrevention.getConfig().getDouble("economy.ClaimBlocksPurchaseCost", 3.0);
         this.sellRate = griefPrevention.getConfig().getDouble("economy.ClaimBlocksSellValue", 1.0);
@@ -151,93 +153,65 @@ public class GriefPreventionMenuManager implements Listener {
     }
 
     private void openPlayerListMenu(Player player, int page, String searchQuery) {
-        Bukkit.getScheduler().runTaskAsynchronously(plugin, () -> {
-            List<OfflinePlayer> onlinePlayers = new ArrayList<>();
-            List<OfflinePlayer> offlinePlayers = new ArrayList<>();
-
-            for (OfflinePlayer op : Bukkit.getOfflinePlayers()) {
-                if (op.isBanned()) continue;
-                if (op.getUniqueId().equals(player.getUniqueId())) continue;
-
-                if (searchQuery != null && !searchQuery.isEmpty()) {
-                    String name = op.getName();
-                    if (name == null || !name.toLowerCase().contains(searchQuery.toLowerCase())) {
-                        continue;
-                    }
-                }
-
-                if (op.isOnline()) onlinePlayers.add(op);
-                else offlinePlayers.add(op);
-            }
-
-            List<OfflinePlayer> sortedPlayers = new ArrayList<>();
-            sortedPlayers.addAll(onlinePlayers);
-            sortedPlayers.addAll(offlinePlayers);
-
-            Bukkit.getScheduler().runTask(plugin, () -> {
-                openPlayerListMenuSync(player, page, searchQuery, sortedPlayers);
-            });
-        });
-    }
-
-    private void openPlayerListMenuSync(Player player, int page, String searchQuery, List<OfflinePlayer> sortedPlayers) {
         int pageSize = 45;
-        int totalPlayers = sortedPlayers.size();
-        int totalPages = (int) Math.ceil((double) totalPlayers / pageSize);
 
-        if (page < 0) page = 0;
-        if (page >= totalPages && totalPages > 0) page = totalPages - 1;
+        playerCacheManager.getPlayersAsync(searchQuery, pageSize, page * pageSize,
+                (players, totalCount) -> {
 
-        int start = page * pageSize;
-        int end = Math.min(start + pageSize, totalPlayers);
+                    int totalPages = (int) Math.ceil((double) totalCount / pageSize);
+                    if (totalPages == 0) totalPages = 1;
 
-        String title = searchQuery != null && !searchQuery.isEmpty()
-                ? "検索: " + searchQuery + " - ページ " + (page + 1) + "/" + Math.max(1, totalPages)
-                : "プレイヤー一覧 - ページ " + (page + 1) + "/" + Math.max(1, totalPages);
+                    String title = searchQuery != null && !searchQuery.isEmpty()
+                            ? "検索: " + searchQuery + " - ページ " + (page + 1) + "/" + totalPages
+                            : "プレイヤー一覧 - ページ " + (page + 1) + "/" + totalPages;
 
-        Inventory gui = Bukkit.createInventory(null, 54,
-                Component.text(title)
-                        .color(NamedTextColor.BLUE)
-                        .decorate(TextDecoration.BOLD)
-                        .decoration(TextDecoration.ITALIC, false));
+                    Inventory gui = Bukkit.createInventory(null, 54,
+                            Component.text(title)
+                                    .color(NamedTextColor.BLUE)
+                                    .decorate(TextDecoration.BOLD)
+                                    .decoration(TextDecoration.ITALIC, false));
 
-        for (int i = start; i < end; i++) {
-            OfflinePlayer target = sortedPlayers.get(i);
-            gui.setItem(i - start, createPlayerHeadItemFull(target));
-        }
+                    // プレイヤーヘッドを配置
+                    for (int i = 0; i < players.size() && i < pageSize; i++) {
+                        PlayerCacheManager.CachedPlayer cp = players.get(i);
+                        if (cp.uuid.equals(player.getUniqueId())) continue;
+                        gui.setItem(i, createPlayerHeadItemFast(cp));
+                    }
 
-        ItemStack searchItem = new ItemStack(Material.SPYGLASS);
-        searchItem.editMeta(meta -> {
-            meta.displayName(Component.text("プレイヤー検索")
-                    .color(NamedTextColor.AQUA)
-                    .decoration(TextDecoration.ITALIC, false));
-            List<Component> lore = new ArrayList<>();
-            if (searchQuery != null && !searchQuery.isEmpty()) {
-                lore.add(Component.text("現在の検索: " + searchQuery)
-                        .color(NamedTextColor.YELLOW)
-                        .decoration(TextDecoration.ITALIC, false));
-                lore.add(Component.text("クリックで検索をクリア")
-                        .color(NamedTextColor.GRAY)
-                        .decoration(TextDecoration.ITALIC, false));
-            } else {
-                lore.add(Component.text("クリックして名前で検索")
-                        .color(NamedTextColor.GREEN)
-                        .decoration(TextDecoration.ITALIC, false));
-            }
-            meta.lore(lore);
-        });
-        gui.setItem(49, searchItem);
+                    // 検索ボタン
+                    ItemStack searchItem = new ItemStack(Material.SPYGLASS);
+                    searchItem.editMeta(meta -> {
+                        meta.displayName(Component.text("プレイヤー検索")
+                                .color(NamedTextColor.AQUA)
+                                .decoration(TextDecoration.ITALIC, false));
+                        List<Component> lore = new ArrayList<>();
+                        if (searchQuery != null && !searchQuery.isEmpty()) {
+                            lore.add(Component.text("現在の検索: " + searchQuery)
+                                    .color(NamedTextColor.YELLOW)
+                                    .decoration(TextDecoration.ITALIC, false));
+                            lore.add(Component.text("クリックで検索をクリア")
+                                    .color(NamedTextColor.GRAY)
+                                    .decoration(TextDecoration.ITALIC, false));
+                        } else {
+                            lore.add(Component.text("クリックして名前で検索")
+                                    .color(NamedTextColor.GREEN)
+                                    .decoration(TextDecoration.ITALIC, false));
+                        }
+                        meta.lore(lore);
+                    });
+                    gui.setItem(49, searchItem);
 
-        gui.setItem(45, createMenuItem(Material.ARROW, "戻る", Arrays.asList("土地メニューに戻る")));
-        if (page > 0) {
-            gui.setItem(48, createMenuItem(Material.ORANGE_DYE, "◀ 前のページ", Arrays.asList("前のページへ")));
-        }
-        if (page < totalPages - 1) {
-            gui.setItem(50, createMenuItem(Material.LIME_DYE, "次のページ ▶", Arrays.asList("次のページへ")));
-        }
-        gui.setItem(53, createMenuItem(Material.BARRIER, "閉じる", Arrays.asList("メニューを閉じます")));
+                    gui.setItem(45, createMenuItem(Material.ARROW, "戻る", Arrays.asList("土地メニューに戻る")));
+                    if (page > 0) {
+                        gui.setItem(48, createMenuItem(Material.ORANGE_DYE, "◀ 前のページ", Arrays.asList("前のページへ")));
+                    }
+                    if (page < totalPages - 1) {
+                        gui.setItem(50, createMenuItem(Material.LIME_DYE, "次のページ ▶", Arrays.asList("次のページへ")));
+                    }
+                    gui.setItem(53, createMenuItem(Material.BARRIER, "閉じる", Arrays.asList("メニューを閉じます")));
 
-        player.openInventory(gui);
+                    player.openInventory(gui);
+                });
     }
 
     private void openPlayerSearchInput(Player player) {
@@ -507,23 +481,25 @@ public class GriefPreventionMenuManager implements Listener {
         return createMenuItem(material, name, lore, NamedTextColor.YELLOW);
     }
 
-    private ItemStack createPlayerHeadItemFull(OfflinePlayer target) {
+    private ItemStack createPlayerHeadItemFast(PlayerCacheManager.CachedPlayer cp) {
         ItemStack item = new ItemStack(Material.PLAYER_HEAD);
         SkullMeta meta = (SkullMeta) item.getItemMeta();
 
-        com.destroystokyo.paper.profile.PlayerProfile profile = Bukkit.createProfile(target.getUniqueId(), target.getName());
-        profile.complete();
-
+        com.destroystokyo.paper.profile.PlayerProfile profile =
+                Bukkit.createProfile(cp.uuid, cp.name);
         meta.setPlayerProfile(profile);
-        meta.displayName(Component.text(target.getName() != null ? target.getName() : "不明")
-                .color(target.isOnline() ? NamedTextColor.GREEN : NamedTextColor.GRAY)
+
+        boolean isOnline = cp.isOnline();
+        meta.displayName(Component.text(cp.name)
+                .color(isOnline ? NamedTextColor.GREEN : NamedTextColor.GRAY)
                 .decoration(TextDecoration.ITALIC, false));
+
         List<Component> lore = Arrays.asList(
                 Component.text("クリック/タップで追加・管理")
                         .color(NamedTextColor.GOLD)
                         .decoration(TextDecoration.ITALIC, false),
-                Component.text(target.isOnline() ? "オンライン" : "オフライン")
-                        .color(target.isOnline() ? NamedTextColor.GREEN : NamedTextColor.RED)
+                Component.text(isOnline ? "オンライン" : "オフライン")
+                        .color(isOnline ? NamedTextColor.GREEN : NamedTextColor.RED)
                         .decoration(TextDecoration.ITALIC, false)
         );
         meta.lore(lore);
