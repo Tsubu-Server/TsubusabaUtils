@@ -171,10 +171,11 @@ public class GriefPreventionMenuManager implements Listener {
                                     .decorate(TextDecoration.BOLD)
                                     .decoration(TextDecoration.ITALIC, false));
 
-                    for (int i = 0; i < players.size() && i < pageSize; i++) {
+                    for (int i = 0, guiSlot = 0; i < players.size() && guiSlot < pageSize; i++) {
                         PlayerCacheManager.CachedPlayer cp = players.get(i);
                         if (cp.uuid.equals(player.getUniqueId())) continue;
-                        gui.setItem(i, createPlayerHeadItemFast(cp));
+                        gui.setItem(guiSlot, createPlayerHeadItemFast(cp));
+                        guiSlot++;
                     }
 
                     ItemStack searchItem = new ItemStack(Material.SPYGLASS);

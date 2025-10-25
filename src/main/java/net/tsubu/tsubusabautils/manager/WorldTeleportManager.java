@@ -47,12 +47,22 @@ public class WorldTeleportManager implements Listener {
     public Location getLastLocationByPrefix(Player player, String prefix) {
         if (!databaseManager.isEnabled()) return null;
 
-        String sql = "SELECT * FROM player_last_locations WHERE uuid = ? AND world LIKE ? ORDER BY updated_at DESC LIMIT 1";
+        String sql = """
+        SELECT * FROM player_last_locations
+        WHERE uuid = ?
+        AND world LIKE ?
+        AND world NOT LIKE ?
+        ORDER BY updated_at DESC
+        LIMIT 1
+    """;
+
         try (Connection conn = databaseManager.getConnection();
              PreparedStatement stmt = conn.prepareStatement(sql)) {
             stmt.setString(1, player.getUniqueId().toString());
             stmt.setString(2, prefix + "%");
+            stmt.setString(3, "%_the_end%");
             ResultSet rs = stmt.executeQuery();
+
             if (rs.next()) {
                 World world = Bukkit.getWorld(rs.getString("world"));
                 if (world == null) return null;

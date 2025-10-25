@@ -36,18 +36,6 @@ public class PlayerCacheManager implements Listener {
         );
     }
 
-    @EventHandler
-    public void onPlayerJoin(PlayerJoinEvent event) {
-        Player p = event.getPlayer();
-        updatePlayerCache(p.getUniqueId(), p.getName(), System.currentTimeMillis(), getSkinUrl(p));
-    }
-
-    @EventHandler
-    public void onPlayerQuit(PlayerQuitEvent event) {
-        Player p = event.getPlayer();
-        updatePlayerCache(p.getUniqueId(), p.getName(), System.currentTimeMillis(), getSkinUrl(p));
-    }
-
     private String getSkinUrl(Player player) {
         try {
             var profile = player.getPlayerProfile();
@@ -146,24 +134,21 @@ public class PlayerCacheManager implements Listener {
         if (!dbManager.isEnabled()) return;
 
         Bukkit.getScheduler().runTaskAsynchronously(plugin, () -> {
-            int count = 0;
             for (OfflinePlayer op : Bukkit.getOfflinePlayers()) {
-                if (op.getName() != null && op.hasPlayedBefore()) {
-                    String skinUrl = null;
-                    try {
-                        var profile = op.getPlayerProfile();
-                        var textures = profile.getTextures();
-                        var skin = textures.getSkin();
-                        if (skin != null) skinUrl = skin.toString();
-                    } catch (Exception ignored) {}
+                if (op.getName() == null || !op.hasPlayedBefore()) continue;
 
-                    updatePlayerCache(op.getUniqueId(), op.getName(), op.getLastPlayed(), skinUrl);
-                    count++;
-                }
+                String skinUrl = null;
+                try {
+                    var profile = op.getPlayerProfile();
+                    var textures = profile.getTextures();
+                    var skin = textures.getSkin();
+                    if (skin != null) skinUrl = skin.toString();
+                } catch (Exception ignored) {}
+                updatePlayerCache(op.getUniqueId(), op.getName(), op.getLastPlayed(), skinUrl);
             }
-            int finalCount = count;
+
             Bukkit.getScheduler().runTask(plugin, () ->
-                    plugin.getLogger().info("Player cache initialized with " + finalCount + " players!")
+                    plugin.getLogger().info("Player cache initialized with offline players")
             );
         });
     }
@@ -227,5 +212,18 @@ public class PlayerCacheManager implements Listener {
         public interface PlayerListCallback {
             void onResult(List<CachedPlayer> players, int totalCount);
         }
+    }
+
+    @EventHandler
+    public void onPlayerJoin(PlayerJoinEvent event) {
+        Player p = event.getPlayer();
+        String skinUrl = getSkinUrl(p);
+        updatePlayerCache(p.getUniqueId(), p.getName(), System.currentTimeMillis(), skinUrl);
+    }
+
+    @EventHandler
+    public void onPlayerQuit(PlayerQuitEvent event) {
+        Player p = event.getPlayer();
+        updatePlayerCache(p.getUniqueId(), p.getName(), System.currentTimeMillis(), getSkinUrl(p));
     }
 }

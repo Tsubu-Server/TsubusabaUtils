@@ -27,6 +27,7 @@ public class WorldTeleportCommand implements CommandExecutor {
 
         String cmd = label.toLowerCase();
         String targetWorldName;
+
         switch (cmd) {
             case "res" -> targetWorldName = "resource";
             case "main" -> targetWorldName = "world";
@@ -36,10 +37,12 @@ public class WorldTeleportCommand implements CommandExecutor {
             }
         }
 
+        player.sendMessage("§7前回の座標を確認中...");
         Location lastLoc = manager.getLastLocationByPrefix(player, targetWorldName);
 
         Location targetLoc;
-        if (lastLoc != null && lastLoc.getWorld() != null && lastLoc.getWorld().getName().toLowerCase().startsWith(targetWorldName.toLowerCase())) {
+
+        if (lastLoc != null && lastLoc.getWorld() != null) {
             targetLoc = lastLoc.clone();
         } else {
             World targetWorld = Bukkit.getWorld(targetWorldName);
@@ -47,10 +50,11 @@ public class WorldTeleportCommand implements CommandExecutor {
                 player.sendMessage("§cワールド " + targetWorldName + " が見つかりません。");
                 return true;
             }
+
             targetLoc = targetWorld.getSpawnLocation().clone();
             targetLoc.setX(targetLoc.getBlockX() + 0.5);
             targetLoc.setZ(targetLoc.getBlockZ() + 0.5);
-            targetLoc.setY(targetLoc.getWorld().getHighestBlockYAt(targetLoc) + 1);
+            targetLoc.setY(targetWorld.getHighestBlockYAt(targetLoc) + 1);
         }
 
         player.sendMessage("§7転送準備中...");
@@ -63,3 +67,4 @@ public class WorldTeleportCommand implements CommandExecutor {
         return true;
     }
 }
+
