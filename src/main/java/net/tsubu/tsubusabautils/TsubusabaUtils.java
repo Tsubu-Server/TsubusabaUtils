@@ -83,8 +83,10 @@ public class TsubusabaUtils extends JavaPlugin implements Listener {
         this.chatManager = new ChatManager(this, luckPerms);
         this.invincibilityManager = new InvincibilityManager();
         this.adminSellManager = new AdminSellManager(this, economy);
+        this.adminSellManager.loadAllCategories();
         this.recipeGUIManager = new RecipeGUIManager(this);
         this.gMenuListener = new GMenuListener(this);
+        adminSellManager.registerAllListeners();
         databaseManager = new DatabaseManager(this);
         playerCacheManager = new PlayerCacheManager(this, databaseManager);
         griefPreventionMenuManager = new GriefPreventionMenuManager(this, griefPrevention, economy, playerCacheManager);
@@ -118,7 +120,6 @@ public class TsubusabaUtils extends JavaPlugin implements Listener {
         getServer().getPluginManager().registerEvents(chatManager, this);
         getServer().getPluginManager().registerEvents(invincibilityManager, this);
         getServer().getPluginManager().registerEvents(griefPreventionMenuManager, this);
-        getServer().getPluginManager().registerEvents(adminSellManager, this);
         getServer().getPluginManager().registerEvents(recipeGUIManager, this);
         getServer().getPluginManager().registerEvents(gMenuListener, this);
         getServer().getPluginManager().registerEvents(new MainMenuListener(this), this);

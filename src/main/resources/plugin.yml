@@ -39,10 +39,10 @@ commands:
     usage: /wiki
 
   adminsell:
-    description: Open admin shop buyback GUI
-    usage: /<command> [reload]
+    description: Open AdminSell GUI
+    usage: /<command> [category|reload]
     permission: tsubusabautils.adminsell
-    permission-message: You don't have permission to use this command.
+    permission-message: You don't have permission.
 
 permissions:
   sendmoney.use:
@@ -52,8 +52,8 @@ permissions:
     description: Administrative permissions for SendMoney
     default: op
   tsubusabautils.adminsell:
-    description: Allow using adminsell command
+    description: Use /adminsell
     default: true
   tsubusabautils.adminsell.reload:
-    description: Allow reloading adminsell configuration
+    description: Reload all adminsell configs
     default: op
