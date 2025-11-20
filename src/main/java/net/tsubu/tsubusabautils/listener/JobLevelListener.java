@@ -55,9 +55,6 @@ public class JobLevelListener implements Listener {
         sidebarManager.updateJobs(player);
     }
 
-    /**
-     * グローバル報酬を処理する（任意の職業でのレベル条件）
-     */
     private void processGlobalRewards(Player player, int newLevel) {
         ConfigurationSection globalRewards = plugin.getConfig().getConfigurationSection("global-rewards");
         if (globalRewards == null) return;
@@ -77,9 +74,6 @@ public class JobLevelListener implements Listener {
         }
     }
 
-    /**
-     * 職業ごとの報酬を処理する
-     */
     private void processJobSpecificRewards(Player player, String jobName, int newLevel) {
         ConfigurationSection jobRewards = plugin.getConfig().getConfigurationSection("job-rewards." + jobName);
         if (jobRewards == null) return;
@@ -99,9 +93,6 @@ public class JobLevelListener implements Listener {
         }
     }
 
-    /**
-     * OR条件による報酬を処理する（いずれか一つでも満たせばOK）
-     */
     private void processOrRewards(Player player) {
         ConfigurationSection orRewards = plugin.getConfig().getConfigurationSection("or-rewards");
         if (orRewards == null) return;
@@ -152,9 +143,6 @@ public class JobLevelListener implements Listener {
         }
     }
 
-    /**
-     * AND条件による報酬を処理する（全て満たす必要がある）
-     */
     private void processCombinationRewards(Player player) {
         ConfigurationSection combinationRewards = plugin.getConfig().getConfigurationSection("combination-rewards");
         if (combinationRewards == null) return;
@@ -199,16 +187,10 @@ public class JobLevelListener implements Listener {
         }
     }
 
-    /**
-     * 職業別の進捗を処理する
-     */
     private void processJobSpecificAdvancements(Player player, String jobName, int newLevel) {
         processAchievements(player, "achievements." + jobName, newLevel);
     }
 
-    /**
-     * OR条件による進捗を処理する
-     */
     private void processOrAdvancements(Player player) {
         ConfigurationSection orAchievements = plugin.getConfig().getConfigurationSection("achievements.or");
         if (orAchievements == null) return;
@@ -261,9 +243,6 @@ public class JobLevelListener implements Listener {
         }
     }
 
-    /**
-     * AND条件による進捗を処理する
-     */
     private void processCombinationAdvancements(Player player) {
         ConfigurationSection combinationAchievements = plugin.getConfig().getConfigurationSection("achievements.combination");
         if (combinationAchievements == null) return;

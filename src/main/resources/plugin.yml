@@ -43,6 +43,7 @@ commands:
   sellall:
     description: インベントリのアイテムを運営ショップに一括売却
     usage: /sellall
+    permission: tsubusabautils.adminsell.sellall
 
   adminsell:
     description: Open admin shop buyback GUI
@@ -62,4 +63,7 @@ permissions:
     default: true
   tsubusabautils.adminsell.reload:
     description: Allow reloading adminsell configuration
+    default: op
+  tsubusabautils.adminsell.sellall:
+    description: Allow using sellall command
     default: op
