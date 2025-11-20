@@ -8,7 +8,6 @@ import org.bukkit.event.EventHandler;
 import org.bukkit.event.Listener;
 import org.bukkit.event.player.PlayerJoinEvent;
 import org.bukkit.event.player.PlayerQuitEvent;
-import org.bukkit.event.player.PlayerTeleportEvent;
 import org.bukkit.plugin.java.JavaPlugin;
 
 import java.sql.*;
@@ -46,7 +45,6 @@ public class WorldTeleportManager implements Listener {
 
         Bukkit.getPluginManager().registerEvents(this, plugin);
 
-        // データベースが有効ならテーブルを作成
         if (databaseManager.isEnabled()) {
             String sql = """
                 CREATE TABLE IF NOT EXISTS player_last_locations (
@@ -113,16 +111,14 @@ public class WorldTeleportManager implements Listener {
         }
     }
 
-    @EventHandler
-    public void onTeleport(PlayerTeleportEvent event) {
-        Player player = event.getPlayer();
-        Location from = event.getFrom();
-        String fromWorld = from.getWorld().getName();
+    public void saveCurrentLocation(Player player) {
+        Location location = player.getLocation();
+        String worldName = location.getWorld().getName();
 
         lastLocations.putIfAbsent(player.getUniqueId(), new HashMap<>());
-        lastLocations.get(player.getUniqueId()).put(fromWorld, new LastLocation(from));
+        lastLocations.get(player.getUniqueId()).put(worldName, new LastLocation(location));
 
-        saveLocationToDatabase(player, fromWorld, from);
+        saveLocationToDatabase(player, worldName, location);
     }
 
     @EventHandler

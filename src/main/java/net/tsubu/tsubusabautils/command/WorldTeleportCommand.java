@@ -10,6 +10,8 @@ import org.bukkit.command.CommandSender;
 import org.bukkit.entity.Player;
 import org.jetbrains.annotations.NotNull;
 
+import java.util.Objects;
+
 public class WorldTeleportCommand implements CommandExecutor {
 
     private final WorldTeleportManager manager;
@@ -28,13 +30,15 @@ public class WorldTeleportCommand implements CommandExecutor {
         String cmd = label.toLowerCase();
         String targetWorldName;
         switch (cmd) {
-            case "res" -> targetWorldName = "resource";
+            case "res","resource" -> targetWorldName = "resource";
             case "main" -> targetWorldName = "world";
+            case "trap" -> targetWorldName = "trap";
             default -> {
                 player.sendMessage("§c不明なコマンドです。");
                 return true;
             }
         }
+        manager.saveCurrentLocation(player);
 
         Location lastLoc = manager.getLastLocationByPrefix(player, targetWorldName);
         Location targetLoc;
@@ -42,12 +46,11 @@ public class WorldTeleportCommand implements CommandExecutor {
             targetLoc = lastLoc.clone();
         } else {
             World targetWorld = Bukkit.getWorld(targetWorldName);
-            targetLoc = targetWorld.getSpawnLocation().clone();
+            targetLoc = Objects.requireNonNull(targetWorld).getSpawnLocation().clone();
         }
 
         targetLoc.setX(targetLoc.getBlockX() + 0.5);
         targetLoc.setZ(targetLoc.getBlockZ() + 0.5);
-        targetLoc.setY(targetLoc.getWorld().getHighestBlockYAt(targetLoc) + 1);
 
         player.sendMessage("§7転送準備中...");
 

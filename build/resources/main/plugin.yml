@@ -37,6 +37,12 @@ commands:
   wiki:
     description: つぶ鯖のガイドwikiを開く
     usage: /wiki
+  trap:
+    description: トラップワールド移動
+    usage: /trap
+  sellall:
+    description: インベントリのアイテムを運営ショップに一括売却
+    usage: /sellall
 
   adminsell:
     description: Open admin shop buyback GUI

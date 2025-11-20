@@ -28,6 +28,7 @@ import java.io.File;
 import java.io.IOException;
 import java.text.DecimalFormat;
 import java.util.*;
+import java.util.stream.Collectors;
 
 public class AdminSellManager implements Listener {
 
@@ -41,6 +42,8 @@ public class AdminSellManager implements Listener {
     private File configFile;
     private FileConfiguration config;
     private final Set<UUID> skipReturnOnClose = Collections.synchronizedSet(new HashSet<>());
+    private final Map<UUID, Integer> playerPages = new HashMap<>();
+    private final Map<UUID, ItemStack[]> sellSlotContents = new HashMap<>();
 
     public AdminSellManager(TsubusabaUtils plugin, Economy economy) {
         this.plugin = plugin;
@@ -116,12 +119,10 @@ public class AdminSellManager implements Listener {
                     if (slotObj instanceof Number) slot = ((Number) slotObj).intValue();
                     else if (slotObj != null) slot = Integer.parseInt(String.valueOf(slotObj));
 
-                    if (slot < 0) slot = 0;
-                    if (slot > 18) slot = 18;
-                    int guiSlot = (slot >= 1 && slot <= 18) ? (slot - 1) : slot;
+                    if (slot < 1) slot = 1;
 
                     buybackItems.put(material, price);
-                    buybackSlots.put(material, guiSlot);
+                    buybackSlots.put(material, slot);
                     buybackNames.put(material, displayName);
 
                 } catch (Exception ex) {
@@ -138,29 +139,57 @@ public class AdminSellManager implements Listener {
     }
 
     public void openBuybackGUI(Player player) {
+        openBuybackGUI(player, 0);
+    }
+
+    public void openBuybackGUI(Player player, int page) {
+        playerPages.put(player.getUniqueId(), page);
+
+        Inventory prevInv = player.getOpenInventory().getTopInventory();
+        if (prevInv != null) {
+            String titleText = "";
+            if (player.getOpenInventory().title() != null) {
+                titleText = PlainTextComponentSerializer.plainText().serialize(player.getOpenInventory().title());
+            }
+            if (titleText.contains("買取")) {
+                ItemStack[] contents = new ItemStack[27];
+                for (int i = 18; i <= 44; i++) {
+                    contents[i - 18] = prevInv.getItem(i);
+                }
+                sellSlotContents.put(player.getUniqueId(), contents);
+            }
+        }
+
         Inventory gui = Bukkit.createInventory(null, 54,
-                Component.text("今週の買取 (次の更新: " + nextUpdateDate + ")")
+                Component.text("買取 《次の更新: " + nextUpdateDate + "》")
                         .color(NamedTextColor.DARK_GREEN)
-                        .decoration(TextDecoration.BOLD,true)
+                        .decoration(TextDecoration.BOLD, true)
                         .decoration(TextDecoration.ITALIC, false)
         );
 
-        for (int i = 0; i <= 17; i++) {
+        for (int i = 9; i <= 17; i++) {
             ItemStack glass = new ItemStack(Material.YELLOW_STAINED_GLASS_PANE);
             glass.editMeta(meta -> meta.displayName(Component.text(" ")));
             gui.setItem(i, glass);
         }
-        int[] buttonGlassSlots = {46, 47, 48, 50, 51, 52};
-        for (int slot : buttonGlassSlots) {
-            ItemStack glass = new ItemStack(Material.YELLOW_STAINED_GLASS_PANE);
-            glass.editMeta(meta -> meta.displayName(Component.text(" ")));
-            gui.setItem(slot, glass);
+
+        int itemsPerPage = 9;
+
+        List<Map.Entry<Material, Integer>> sortedSlots = buybackSlots.entrySet().stream()
+                .sorted(Map.Entry.comparingByValue())
+                .collect(Collectors.toList());
+        int totalItems = sortedSlots.size();
+        int maxPage = (totalItems - 1) / itemsPerPage;
+        int startIndex = page * itemsPerPage;
+        List<Map.Entry<Material, Integer>> pageItems = new ArrayList<>();
+        for (int i = startIndex; i < Math.min(startIndex + itemsPerPage, totalItems); i++) {
+            pageItems.add(sortedSlots.get(i));
         }
 
-        for (Map.Entry<Material, Double> entry : buybackItems.entrySet()) {
+        for (int i = 0; i < pageItems.size(); i++) {
+            Map.Entry<Material, Integer> entry = pageItems.get(i);
             Material material = entry.getKey();
-            double price = entry.getValue();
-            int slot = buybackSlots.getOrDefault(material, 0);
+            double price = buybackItems.get(material);
             String displayName = buybackNames.getOrDefault(material, material.name());
 
             ItemStack item = new ItemStack(material);
@@ -179,15 +208,50 @@ public class AdminSellManager implements Listener {
                         .decoration(TextDecoration.ITALIC, false));
                 meta.lore(lore);
             });
-            gui.setItem(slot, item);
+
+            gui.setItem(i, item);
         }
 
-        ItemStack back = new ItemStack(Material.ARROW);
-        back.editMeta(meta -> {
-            meta.displayName(Component.text("戻る").color(NamedTextColor.YELLOW).decoration(TextDecoration.ITALIC, false));
-            meta.lore(List.of(Component.text("運営ショップメニューに戻る").color(NamedTextColor.GREEN).decoration(TextDecoration.ITALIC, false)));
-        });
-        gui.setItem(45, back);
+        for (int i = pageItems.size(); i < 9; i++) {
+            ItemStack glass = new ItemStack(Material.YELLOW_STAINED_GLASS_PANE);
+            glass.editMeta(meta -> meta.displayName(Component.text(" ")));
+            gui.setItem(i, glass);
+        }
+
+        if (page > 0) {
+            ItemStack prevPage = new ItemStack(Material.RED_STAINED_GLASS_PANE);
+            prevPage.editMeta(meta -> {
+                meta.displayName(Component.text("前のページ")
+                        .color(NamedTextColor.RED)
+                        .decoration(TextDecoration.BOLD, true)
+                        .decoration(TextDecoration.ITALIC, false));
+                meta.lore(List.of(Component.text("クリックで前のページへ")
+                        .color(NamedTextColor.GRAY)
+                        .decoration(TextDecoration.ITALIC, false)));
+            });
+            gui.setItem(9, prevPage);
+        }
+
+        if (page < maxPage) {
+            ItemStack nextPage = new ItemStack(Material.LIME_STAINED_GLASS_PANE);
+            nextPage.editMeta(meta -> {
+                meta.displayName(Component.text("次のページ")
+                        .color(NamedTextColor.GREEN)
+                        .decoration(TextDecoration.BOLD, true)
+                        .decoration(TextDecoration.ITALIC, false));
+                meta.lore(List.of(Component.text("クリックで次のページへ")
+                        .color(NamedTextColor.GRAY)
+                        .decoration(TextDecoration.ITALIC, false)));
+            });
+            gui.setItem(17, nextPage);
+        }
+
+        int[] buttonGlassSlots = {45, 46, 47, 48, 50, 51, 52};
+        for (int slot : buttonGlassSlots) {
+            ItemStack glass = new ItemStack(Material.YELLOW_STAINED_GLASS_PANE);
+            glass.editMeta(meta -> meta.displayName(Component.text(" ")));
+            gui.setItem(slot, glass);
+        }
 
         ItemStack sell = new ItemStack(Material.EMERALD_BLOCK);
         sell.editMeta(meta -> {
@@ -204,8 +268,17 @@ public class AdminSellManager implements Listener {
             meta.lore(List.of(Component.text("メニューを閉じます").color(NamedTextColor.GRAY).decoration(TextDecoration.ITALIC, false)));
         });
         gui.setItem(53, close);
-
         player.openInventory(gui);
+
+        if (sellSlotContents.containsKey(player.getUniqueId())) {
+            ItemStack[] saved = sellSlotContents.get(player.getUniqueId());
+            for (int i = 0; i < saved.length; i++) {
+                if (saved[i] != null) {
+                    gui.setItem(18 + i, saved[i]);
+                }
+            }
+        }
+
         updateSellButton(gui);
     }
 
@@ -215,23 +288,44 @@ public class AdminSellManager implements Listener {
         Component title = player.getOpenInventory().title();
         if (title == null) return;
         String titleText = PlainTextComponentSerializer.plainText().serialize(title);
-        if (!titleText.contains("今週の買取")) return;
+        if (!titleText.contains("買取")) return;
 
         Inventory clickedInv = event.getClickedInventory();
         if (clickedInv == null) return;
         if (clickedInv.equals(event.getView().getTopInventory())) {
             int slot = event.getSlot();
+
             if ((slot >= 0 && slot <= 17) || (slot >= 45 && slot <= 53)) {
                 event.setCancelled(true);
 
-                if (slot == 45 || slot == 49 || slot == 53) {
-                    ItemStack clicked = event.getCurrentItem();
-                    if (clicked == null || !clicked.hasItemMeta() || clicked.getItemMeta().displayName() == null) return;
-                    String name = PlainTextComponentSerializer.plainText().serialize(clicked.getItemMeta().displayName());
-                    switch (name) {
-                        case "戻る" -> { player.closeInventory(); player.playSound(player.getLocation(), Sound.UI_BUTTON_CLICK,1f,1f); }
-                        case "閉じる" -> { player.closeInventory(); player.playSound(player.getLocation(), Sound.UI_BUTTON_CLICK,1f,1f); }
-                        case "売却" -> processSell(player);
+                ItemStack clicked = event.getCurrentItem();
+                if (clicked == null || !clicked.hasItemMeta() || clicked.getItemMeta().displayName() == null) return;
+
+                String name = PlainTextComponentSerializer.plainText().serialize(clicked.getItemMeta().displayName());
+                int currentPage = playerPages.getOrDefault(player.getUniqueId(), 0);
+
+                switch (name) {
+                    case "閉じる" -> {
+                        player.closeInventory();
+                        player.playSound(player.getLocation(), Sound.UI_BUTTON_CLICK, 1f, 1f);
+                    }
+                    case "売却" -> processSell(player);
+                    case "前のページ" -> {
+                        player.playSound(player.getLocation(), Sound.UI_BUTTON_CLICK, 1f, 1f);
+                        skipReturnOnClose.add(player.getUniqueId());
+                        openBuybackGUI(player, Math.max(0, currentPage - 1));
+                    }
+                    case "次のページ" -> {
+                        player.playSound(player.getLocation(), Sound.UI_BUTTON_CLICK, 1f, 1f);
+                        int nextPage = currentPage + 1;
+                        int totalItems = buybackSlots.size();
+                        int maxPage = Math.max(0, (int) Math.ceil(totalItems / 9.0) - 1);
+                        if (nextPage <= maxPage) {
+                            skipReturnOnClose.add(player.getUniqueId());
+                            openBuybackGUI(player, nextPage);
+                        } else {
+                            player.sendMessage(Component.text("これ以上ページはありません。").color(NamedTextColor.RED));
+                        }
                     }
                 }
             }
@@ -243,7 +337,7 @@ public class AdminSellManager implements Listener {
     public void onInventoryDrag(InventoryDragEvent event) {
         if (!(event.getWhoClicked() instanceof Player player)) return;
         String titleText = PlainTextComponentSerializer.plainText().serialize(player.getOpenInventory().title());
-        if (!titleText.contains("今週の買取")) return;
+        if (!titleText.contains("買取")) return;
 
         Bukkit.getScheduler().runTask(plugin, () -> updateSellButton(event.getView().getTopInventory()));
     }
@@ -253,19 +347,24 @@ public class AdminSellManager implements Listener {
         if (!(event.getPlayer() instanceof Player player)) return;
         if (event.getView().title() == null) return;
         String titleText = PlainTextComponentSerializer.plainText().serialize(event.getView().title());
-        if (!titleText.contains("今週の買取")) return;
+        if (!titleText.contains("買取")) return;
 
         UUID uuid = player.getUniqueId();
-        if (skipReturnOnClose.contains(uuid)) { skipReturnOnClose.remove(uuid); return; }
+        if (skipReturnOnClose.contains(uuid)) {
+            skipReturnOnClose.remove(uuid);
+            return;
+        }
 
         Inventory inv = event.getView().getTopInventory();
         for (int i = 18; i <= 44; i++) {
             ItemStack item = inv.getItem(i);
             if (item != null && item.getType() != Material.AIR) {
                 player.getInventory().addItem(item).values().forEach(drop -> player.getWorld().dropItemNaturally(player.getLocation(), drop));
-                inv.setItem(i,null);
+                inv.setItem(i, null);
             }
         }
+        playerPages.remove(uuid);
+        sellSlotContents.remove(player.getUniqueId());
     }
 
     private void updateSellButton(Inventory inv) {
@@ -320,7 +419,6 @@ public class AdminSellManager implements Listener {
         }
     }
 
-
     private void processSell(Player player) {
         Inventory inv = player.getOpenInventory().getTopInventory();
         if (inv == null) return;
@@ -370,7 +468,6 @@ public class AdminSellManager implements Listener {
         }
 
         if (total <= 0) {
-//            player.sendMessage(Component.text("売却できるアイテムがありません").color(NamedTextColor.RED));
             player.playSound(player.getLocation(), Sound.ENTITY_VILLAGER_NO, 1f, 1f);
             return;
         }
@@ -386,5 +483,9 @@ public class AdminSellManager implements Listener {
         } else {
             player.sendMessage(Component.text("支払い処理でエラーが発生しました").color(NamedTextColor.RED));
         }
+    }
+
+    public Map<Material, Double> getBuybackItems() {
+        return Collections.unmodifiableMap(buybackItems);
     }
 }
