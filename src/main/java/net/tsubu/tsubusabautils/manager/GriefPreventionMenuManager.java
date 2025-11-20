@@ -14,6 +14,7 @@ import net.kyori.adventure.text.serializer.legacy.LegacyComponentSerializer;
 import net.kyori.adventure.text.serializer.plain.PlainTextComponentSerializer;
 import net.milkbowl.vault.economy.Economy;
 import net.tsubu.tsubusabautils.TsubusabaUtils;
+import net.tsubu.tsubusabautils.cache.PlayerCache;
 import net.wesjd.anvilgui.AnvilGUI;
 import org.bukkit.*;
 import org.bukkit.configuration.file.FileConfiguration;
@@ -151,33 +152,35 @@ public class GriefPreventionMenuManager implements Listener {
     }
 
     private void openPlayerListMenu(Player player, int page, String searchQuery) {
-        Bukkit.getScheduler().runTaskAsynchronously(plugin, () -> {
-            List<OfflinePlayer> onlinePlayers = new ArrayList<>();
-            List<OfflinePlayer> offlinePlayers = new ArrayList<>();
+        List<OfflinePlayer> fullList = PlayerCache.getAll();
+        List<OfflinePlayer> filtered = new ArrayList<>();
 
-            for (OfflinePlayer op : Bukkit.getOfflinePlayers()) {
-                if (op.isBanned()) continue;
-                if (op.getUniqueId().equals(player.getUniqueId())) continue;
+        for (OfflinePlayer op : fullList) {
+            if (op.isBanned()) continue;
+            if (op.getUniqueId().equals(player.getUniqueId())) continue;
 
-                if (searchQuery != null && !searchQuery.isEmpty()) {
-                    String name = op.getName();
-                    if (name == null || !name.toLowerCase().contains(searchQuery.toLowerCase())) {
-                        continue;
-                    }
+            if (searchQuery != null && !searchQuery.isEmpty()) {
+                String name = op.getName();
+                if (name == null || !name.toLowerCase().contains(searchQuery.toLowerCase())) {
+                    continue;
                 }
-
-                if (op.isOnline()) onlinePlayers.add(op);
-                else offlinePlayers.add(op);
             }
+            filtered.add(op);
+        }
 
-            List<OfflinePlayer> sortedPlayers = new ArrayList<>();
-            sortedPlayers.addAll(onlinePlayers);
-            sortedPlayers.addAll(offlinePlayers);
+        List<OfflinePlayer> online = new ArrayList<>();
+        List<OfflinePlayer> offline = new ArrayList<>();
+        for (OfflinePlayer op : filtered) {
+            if (op.isOnline()) {
+                online.add(op);
+            } else {
+                offline.add(op);
+            }
+        }
+        List<OfflinePlayer> sortedPlayers = new ArrayList<>(online);
+        sortedPlayers.addAll(offline);
 
-            Bukkit.getScheduler().runTask(plugin, () -> {
-                openPlayerListMenuSync(player, page, searchQuery, sortedPlayers);
-            });
-        });
+        openPlayerListMenuSync(player, page, searchQuery, sortedPlayers);
     }
 
     private void openPlayerListMenuSync(Player player, int page, String searchQuery, List<OfflinePlayer> sortedPlayers) {

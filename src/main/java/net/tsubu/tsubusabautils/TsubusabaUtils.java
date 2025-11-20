@@ -1,6 +1,7 @@
 package net.tsubu.tsubusabautils;
 
 import net.milkbowl.vault.economy.Economy;
+import net.tsubu.tsubusabautils.cache.PlayerCache;
 import net.tsubu.tsubusabautils.command.*;
 import net.tsubu.tsubusabautils.listener.*;
 import net.tsubu.tsubusabautils.manager.*;
@@ -75,6 +76,7 @@ public class TsubusabaUtils extends JavaPlugin implements Listener {
 
         instance = this;
         sidebarManager = new SidebarManager(this);
+        PlayerCache.reload(this);
         this.homeManager = new HomeManager(essentials, this, luckPerms);
         this.homeGUIManager = new HomeGUIManager(this, homeManager);
         this.guiManager = new GUIManager(this);
@@ -107,9 +109,11 @@ public class TsubusabaUtils extends JavaPlugin implements Listener {
         Objects.requireNonNull(this.getCommand("adminsell")).setExecutor(new AdminSellCommand(this));
         Objects.requireNonNull(this.getCommand("rec")).setExecutor(new RecipeCommand(recipeGUIManager));
         Objects.requireNonNull(this.getCommand("res")).setExecutor(new WorldTeleportCommand(worldTeleportManager));
+        Objects.requireNonNull(this.getCommand("trap")).setExecutor(new WorldTeleportCommand(worldTeleportManager));
         Objects.requireNonNull(this.getCommand("main")).setExecutor(new WorldTeleportCommand(worldTeleportManager));
         Objects.requireNonNull(this.getCommand("wiki")).setExecutor(new WikiCommand(this));
         Objects.requireNonNull(getCommand("spawn")).setExecutor(new SpawnCommand());
+        Objects.requireNonNull(getCommand("sellall")).setExecutor(new SellAllCommand(this));
 
         getServer().getPluginManager().registerEvents(this, this);
         getServer().getPluginManager().registerEvents(guiManager, this);

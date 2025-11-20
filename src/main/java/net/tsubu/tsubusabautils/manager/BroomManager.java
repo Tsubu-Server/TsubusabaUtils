@@ -36,8 +36,6 @@ public class BroomManager implements Listener {
             return;
         }
         if (flyingPlayers.containsKey(player.getUniqueId())) return;
-
-        // 半透明化はクールダウン中のみ
         BroomSession session = new BroomSession(player, broom);
         flyingPlayers.put(player.getUniqueId(), session);
         session.start();
@@ -50,13 +48,11 @@ public class BroomManager implements Listener {
         if (session != null) {
             session.cancel();
             cooldowns.put(player.getUniqueId(), System.currentTimeMillis() + COOLDOWN_MS);
-
-            // クールダウン表示用にインベントリの箒を半透明化
             ItemStack broom = session.broomItem;
             if (broom != null) {
                 ItemStack clone = broom.clone();
                 ItemMeta meta = clone.getItemMeta();
-                if (meta != null) meta.setCustomModelData(0); // 半透明用のモデルID
+                if (meta != null) meta.setCustomModelData(0);
                 clone.setItemMeta(meta);
                 player.getInventory().remove(broom);
                 player.getInventory().addItem(clone);
@@ -87,7 +83,7 @@ public class BroomManager implements Listener {
 
         if (event.isFlying()) {
             session.setAscending(true);
-            event.setCancelled(true); // 通常の飛行禁止
+            event.setCancelled(true);
         } else {
             session.setAscending(false);
         }
