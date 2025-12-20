@@ -31,7 +31,6 @@ public class TsubusabaUtils extends JavaPlugin implements Listener {
     private HomeGUIManager homeGUIManager;
     private GUIManager guiManager;
     private AmountGUIManager amountGUIManager;
-    private ChatManager chatManager;
     private InvincibilityManager invincibilityManager;
     private GriefPreventionMenuManager griefPreventionMenuManager;
     private AdminSellManager adminSellManager;
@@ -41,7 +40,6 @@ public class TsubusabaUtils extends JavaPlugin implements Listener {
     private GMenuListener gMenuListener;
     private HalloweenManager halloweenManager;
     private DatabaseManager databaseManager;
-    private ChatSyncManager chatSyncManager;
 
     @Override
     public void onEnable() {
@@ -81,7 +79,6 @@ public class TsubusabaUtils extends JavaPlugin implements Listener {
         this.homeGUIManager = new HomeGUIManager(this, homeManager);
         this.guiManager = new GUIManager(this);
         this.amountGUIManager = new AmountGUIManager(this);
-        this.chatManager = new ChatManager(this, luckPerms);
         this.invincibilityManager = new InvincibilityManager();
         this.griefPreventionMenuManager = new GriefPreventionMenuManager(this, griefPrevention, economy);
         this.adminSellManager = new AdminSellManager(this, economy);
@@ -89,7 +86,7 @@ public class TsubusabaUtils extends JavaPlugin implements Listener {
         this.gMenuListener = new GMenuListener(this);
         databaseManager = new DatabaseManager(this);
         databaseManager = new DatabaseManager(this);
-        chatSyncManager = new ChatSyncManager(this);
+
         if (getConfig().getBoolean("halloween.enabled", false)) {
             if (halloweenManager == null) {
                 halloweenManager = new HalloweenManager(this, databaseManager);
@@ -118,7 +115,6 @@ public class TsubusabaUtils extends JavaPlugin implements Listener {
         getServer().getPluginManager().registerEvents(this, this);
         getServer().getPluginManager().registerEvents(guiManager, this);
         getServer().getPluginManager().registerEvents(amountGUIManager, this);
-        getServer().getPluginManager().registerEvents(chatManager, this);
         getServer().getPluginManager().registerEvents(invincibilityManager, this);
         getServer().getPluginManager().registerEvents(griefPreventionMenuManager, this);
         getServer().getPluginManager().registerEvents(adminSellManager, this);
@@ -129,9 +125,8 @@ public class TsubusabaUtils extends JavaPlugin implements Listener {
         getServer().getPluginManager().registerEvents(new JobLevelListener(this, sidebarManager), this);
         getServer().getPluginManager().registerEvents(new JobLeaveListener(this, sidebarManager), this);
         getServer().getPluginManager().registerEvents(new SetHomeListener(this, essentials), this);
-        getServer().getPluginManager().registerEvents(chatSyncManager, this);
 
-        getLogger().info("TsubusabaUtilsが有効になりました。");
+        getLogger().info("TsubusabaUtilsãŒæœ‰åŠ¹ã«ãªã‚Šã¾ã—ãŸã€‚");
 
         getServer().getPluginManager().registerEvents(new Listener() {
             @EventHandler
@@ -153,10 +148,7 @@ public class TsubusabaUtils extends JavaPlugin implements Listener {
         if (databaseManager != null) {
             databaseManager.closeConnection();
         }
-        if (chatSyncManager != null) {
-            chatSyncManager.disable();
-        }
-        getLogger().info("TsubusabaUtilsを無効化しました。");
+        getLogger().info("TsubusabaUtilsã‚'ç„¡åŠ¹åŒ–ã—ã¾ã—ãŸã€‚");
     }
 
     private boolean setupEconomy() {
@@ -203,10 +195,6 @@ public class TsubusabaUtils extends JavaPlugin implements Listener {
 
     public AmountGUIManager getAmountGUIManager() {
         return amountGUIManager;
-    }
-
-    public ChatManager getChatManager() {
-        return chatManager;
     }
 
     public InvincibilityManager getInvincibilityManager() {
